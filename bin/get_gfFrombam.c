@@ -729,7 +729,7 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
 
 int usage(FILE * fp)
 {
-    fprintf (fp, "Usage: ./get_gfFrombam <input_bam> <input_gtf> <min-overlap-len> <bin_size> <min-map-len> [pseudogene:0(default)/1] [Secondary_alignment:0(default)] [min_sup_read:2(default)]\n");
+    fprintf (fp, "Usage: LongGF <input_bam> <input_gtf> <min-overlap-len> <bin_size> <min-map-len> [pseudogene:0(default)/1] [Secondary_alignment:0(default)] [min_sup_read:2(default)]\n");
     return 0;
 }
 
