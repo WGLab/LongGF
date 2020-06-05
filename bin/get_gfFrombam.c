@@ -727,9 +727,9 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
 
 
 
-int usage(FILE * fp)
+int usage(FILE * fp, , char * argv[])
 {
-    fprintf (fp, "Usage: LongGF <input_bam> <input_gtf> <min-overlap-len> <bin_size> <min-map-len> [pseudogene:0(default)/1] [Secondary_alignment:0(default)] [min_sup_read:2(default)]\n");
+    fprintf (fp, "Usage: %s <input_bam> <input_gtf> <min-overlap-len> <bin_size> <min-map-len> [pseudogene:0(default)/1] [Secondary_alignment:0(default)] [min_sup_read:2(default)]\n", argv[0]);
     return 0;
 }
 
@@ -746,7 +746,7 @@ int main (int argc, char * argv[])
    int _min_sup_read = 2;
 
    if (argc<6){
-      usage(stderr);
+      usage(stderr, argv);
       return 1;
    }
 
@@ -790,7 +790,7 @@ int main (int argc, char * argv[])
    }
    */
    if (has_error){
-      usage(stderr);
+      usage(stderr, argv);
       return 1;
    }
 
