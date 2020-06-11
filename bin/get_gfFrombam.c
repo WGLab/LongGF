@@ -230,6 +230,9 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
                    fprintf(stderr, "Unknow cigar %d:%d\n", m_op, m_len);              
            }
         }
+        // the two end_pos start from 0 but added by len
+        _this_gmr.ref_end_pos -= 1;
+        _this_gmr.qry_end_pos -= 1;
         if (_this_gmr.map_strand == 1){
            int64_t _rd_ind = _this_read_len - _this_gmr.qry_start_pos -1;
            _this_gmr.qry_start_pos = _this_read_len - _this_gmr.qry_end_pos -1;
@@ -342,9 +345,11 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
       //key: gene name
       std::map<std::string, std::vector<GenomicMapRegion> > _g_list;
       // get all alignment with a gene
+      // for each alignment
       for(std::vector<GenomicMapRegion>::iterator _gmr_it=multi_map_reads_it->second.begin(); _gmr_it!=multi_map_reads_it->second.end(); _gmr_it++){
          std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> >::iterator > _ovlp_rec;
          std::map<std::string, int64_t > _ovlp_len;
+         // check the alignment against each gene
          for (std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> > >::iterator gl_it=m_gene_list.begin(); gl_it!=m_gene_list.end(); gl_it++){
             if(gl_it->first.compare(_gmr_it->chrn)!=0) { continue; }
             for(std::map<std::string, std::shared_ptr<_gtf_entry_> >::iterator chr_g_it=gl_it->second.begin(); chr_g_it!=gl_it->second.end(); chr_g_it++){
@@ -352,24 +357,24 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
                 //   std::cout<<" Test "<<_gmr_it->qry_name<<":"<<_gmr_it->qry_start_pos<<"-"<<_gmr_it->qry_end_pos<<" " <<_gmr_it->map_strand<<"/"<<_gmr_it->chrn<<":"<<_gmr_it->ref_start_pos<<"-"<<_gmr_it->ref_end_pos<<" "<<chr_g_it->second->get_ovlp(*_gmr_it)<<"/"<<chr_g_it->second->get_coding_ovlp(*_gmr_it)<<" "<<chr_g_it->second->_to_string()<<std::endl;
                 //}
 
-                if (chr_g_it->second->get_ovlp(*_gmr_it) > min_len_ovlp && chr_g_it->second->get_coding_ovlp(*_gmr_it) > min_len_ovlp){
+                int64_t _t_code_ovlp = chr_g_it->second->get_coding_ovlp(*_gmr_it);
+                if ((chr_g_it->second->get_name().compare("TMPRSS2")==0 || chr_g_it->second->get_name().compare("ERG")==0 || chr_g_it->second->get_name().compare("ABL1")==0 || chr_g_it->second->get_name().compare("BCR")==0) && _t_code_ovlp>10){
+                   std::cout<<"Check "<<_gmr_it->qry_name<<":"<<_gmr_it->qry_start_pos<<"-"<<_gmr_it->qry_end_pos<<" " <<_gmr_it->map_strand<<"/"<<_gmr_it->chrn<<":"<<_gmr_it->ref_start_pos<<"-"<<_gmr_it->ref_end_pos<<" "<<chr_g_it->second->get_ovlp(*_gmr_it)<<"/"<<chr_g_it->second->get_coding_ovlp(*_gmr_it)<<" "<<chr_g_it->second->_to_string()<<std::endl;
+                }
+                if (chr_g_it->second->get_ovlp(*_gmr_it) > min_len_ovlp && _t_code_ovlp> min_len_ovlp){ //chr_g_it->second->get_coding_ovlp(*_gmr_it) > min_len_ovlp){
                     if (_ovlp_rec.find(chr_g_it->first)==_ovlp_rec.end()){
                        _ovlp_rec[chr_g_it->first] = chr_g_it;
-                       _ovlp_len[chr_g_it->first] = chr_g_it->second->get_coding_ovlp(*_gmr_it);
+                       _ovlp_len[chr_g_it->first] = _t_code_ovlp; //chr_g_it->second->get_coding_ovlp(*_gmr_it);
                     }else{
                        std::cout<<"Warning!!! Duplicate genes " << chr_g_it->first <<std::endl;
                     }
                     continue;
-
+                    /*
                     _g_map_it = _g_list.find(chr_g_it->first);
-                    if (_g_map_it==_g_list.end()){
-                       _g_list[chr_g_it->first] = std::vector<GenomicMapRegion>();
-                    }
+                    if (_g_map_it==_g_list.end()){  _g_list[chr_g_it->first] = std::vector<GenomicMapRegion>(); }
                     _g_list[chr_g_it->first].push_back(*_gmr_it);
-                    if(_gene_in_multi_map.find(chr_g_it->first)==_gene_in_multi_map.end()){
-                       _gene_in_multi_map[chr_g_it->first] = 0;
-                    }
-                    _gene_in_multi_map[chr_g_it->first] += 1;
+                    if(_gene_in_multi_map.find(chr_g_it->first)==_gene_in_multi_map.end()){ _gene_in_multi_map[chr_g_it->first] = 0; }
+                    _gene_in_multi_map[chr_g_it->first] += 1;*/
                 }
             }
          }
@@ -392,6 +397,12 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
                 _gene_in_multi_map[chr_g_it->first] = 0;
             }
             _gene_in_multi_map[chr_g_it->first] += 1;
+         }
+         if (_ovlp_rec.size()>1){
+            std::cout<<"Multiple_ovlp_gene "<<_gmr_it->qry_name<<":"<<_gmr_it->qry_start_pos<<"-"<<_gmr_it->qry_end_pos<<" " <<_gmr_it->map_strand<<"/"<<_gmr_it->chrn<<":"<<_gmr_it->ref_start_pos<<"-"<<_gmr_it->ref_end_pos<<std::endl;
+            for(std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> >::iterator >::iterator _ovlp_r_i=_ovlp_rec.begin(); _ovlp_r_i!=_ovlp_rec.end(); _ovlp_r_i++){
+               std::cout<<"\t"<<_ovlp_r_i->second->second->get_ovlp(*_gmr_it)<<"/"<<_ovlp_len[_ovlp_r_i->first]<<" "<<_ovlp_r_i->second->second->_to_string()<<std::endl; 
+            }
          }
       }
       // less than 2 genes; ignore.
@@ -512,7 +523,15 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
                for(; _oq_grm_it!= _oth_cand[_qry_it->first].end(); _oq_grm_it++){
                   int64_t max_str = _q_grm_it->qry_start_pos > _oq_grm_it->qry_start_pos ? _q_grm_it->qry_start_pos : _oq_grm_it->qry_start_pos;
                   int64_t min_end = _q_grm_it->qry_end_pos   > _oq_grm_it->qry_end_pos   ? _oq_grm_it->qry_end_pos  : _q_grm_it->qry_end_pos;
-                  if (min_end - max_str > 50 || min_end - max_str < -20){ continue; }
+                  if (min_end - max_str > 50 || min_end - max_str < -20){ 
+                      if (min_end - max_str > 50){
+                         std::cout<<"Too-far ";
+                      }else{
+                         std::cout<<"More-ovlp ";
+                      }
+                      std::cout<<"Read1: "<<(_q_grm_it->map_strand==0?"+":"-")<<_q_grm_it->chrn<<":"<<_q_grm_it->ref_start_pos<<"-"<<_q_grm_it->ref_end_pos<<"/"<<_q_grm_it->qry_name<<":"<<_q_grm_it->qry_start_pos<<"-"<<_q_grm_it->qry_end_pos<<" >>> "<<max_str<<" "<<min_end<<" Read2: "<<(_oq_grm_it->map_strand==0?"+":"-")<<_oq_grm_it->chrn<<":"<<_oq_grm_it->ref_start_pos<<"-"<<_oq_grm_it->ref_end_pos<<"/"<<_oq_grm_it->qry_name<<":"<<_oq_grm_it->qry_start_pos<<"-"<<_oq_grm_it->qry_end_pos<<" >>> "<<min_end-max_str<<std::endl;
+                      continue; 
+                  }
                   if ((min_end - max_str)/double(_q_grm_it->qry_end_pos - _q_grm_it->qry_start_pos)>0.4){ continue; }
                   if ((min_end - max_str)/double(_oq_grm_it->qry_end_pos - _oq_grm_it->qry_start_pos)>0.4){ continue; }
 
@@ -585,13 +604,13 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
                       continue;
                   }
 
-                  if (bk1 < m_gene_list[_q_grm_it->chrn][_fg_it->second.g1]->get_gr_start_pos() || bk1 > m_gene_list[_q_grm_it->chrn][_fg_it->second.g1]->get_gr_end_pos() ) {
+                  if (bk1 < m_gene_list[_q_grm_it->chrn][_fg_it->second.g1]->get_gr_start_pos()-10 || bk1 > m_gene_list[_q_grm_it->chrn][_fg_it->second.g1]->get_gr_end_pos()+10 ) {
                      if (m_gene_list[_q_grm_it->chrn][_fg_it->second.g1]->get_name().compare("PSMA6")==0 || m_gene_list[_q_grm_it->chrn][_fg_it->second.g1]->get_name().compare("VMP1")==0){
                         std::cout<<"Test2 "<<m_gene_list[_q_grm_it->chrn][_fg_it->second.g1]->_to_string()<<" >>> "<<bk1<<std::endl;
                      }
                      continue;
                   }
-                  if (bk2 < m_gene_list[_oq_grm_it->chrn][_fg_it->second.g2]->get_gr_start_pos() || bk2 > m_gene_list[_oq_grm_it->chrn][_fg_it->second.g2]->get_gr_end_pos() ) {
+                  if (bk2 < m_gene_list[_oq_grm_it->chrn][_fg_it->second.g2]->get_gr_start_pos()-10 || bk2 > m_gene_list[_oq_grm_it->chrn][_fg_it->second.g2]->get_gr_end_pos()+10 ) {
                      if (m_gene_list[_oq_grm_it->chrn][_fg_it->second.g2]->get_name().compare("PSMA6")==0 || m_gene_list[_oq_grm_it->chrn][_fg_it->second.g2]->get_name().compare("VMP1")==0){
                         std::cout<<"Test2 "<<m_gene_list[_oq_grm_it->chrn][_fg_it->second.g2]->_to_string()<<" >>> "<<bk2 <<std::endl;
                      }
@@ -644,6 +663,7 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
       if (max_sup_1>_min_sup_read-1 && max_sup_2>_min_sup_read-1){
          if (_d_dp_it->second.cand1.size()>_min_sup_read-1 || _d_dp_it->second.cand2.size()>_min_sup_read-1){
             std::ostringstream oss_tostr;
+            std::cout<<"G_F-info\t"<<_gid_to_gn[_fg_it->second.g1]<<":"<<_gid_to_gn[_fg_it->second.g2]<<" "<<max_sup_1<<" "<<max_sup_2<<" supporting reads="<<_d_dp_it->second.cand1.size()<<"/"<<_d_dp_it->second.cand2.size()<<std::endl; 
             oss_tostr<<"GF\t"<<_gid_to_gn[_fg_it->second.g1]<<":"<<_gid_to_gn[_fg_it->second.g2]<<" "<<max_sup_1<<" "<<max_sup_2<<" supporting reads="<<_d_dp_it->second.cand1.size()<<"/"<<_d_dp_it->second.cand2.size(); //_com_qry_name.size(); 
             std::vector<int64_t> pos_1, pos_2;
             int64_t pos_1_left=0, pos_1_right=0;
@@ -670,15 +690,16 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
                oss_tostr<<_d_dp_it->second.cand2[_i->first][0].other_pos<<"("<<(_d_dp_it->second.cand2[_i->first][0].map_strand==0?"+":"-")<<_d_dp_it->second.cand2[_i->first][0].chrn<<":"<<_d_dp_it->second.cand2[_i->first][0].ref_start_pos<<"-"<<_d_dp_it->second.cand2[_i->first][0].ref_end_pos<<"/"<<_d_dp_it->second.cand2[_i->first][0].qry_start_pos<<"-"<<_d_dp_it->second.cand2[_i->first][0].qry_end_pos<<")"<<_d_dp_it->second.cand2[_i->first].size();
                oss_tostr<<"\n";  
             }
+            oss_tostr<<"SumGF\t"<<_gid_to_gn[_fg_it->second.g1]<<":"<<_gid_to_gn[_fg_it->second.g2]<<" "<<max_sup_1<<" "<<_i_1->second[0].chrn<<":"<<int64_t(std::accumulate(std::begin(pos_1), std::end(pos_1), 0.0) / pos_1.size())<<" "<<_i_2->second[0].chrn<<":"<<int64_t(std::accumulate(std::begin(pos_2), std::end(pos_2), 0.0) / pos_2.size())<<"\n";
             
             for(; _i_1!=_d_dp_it->second.cand1.end(); _i_1++){
                for(std::vector<GenomicMapRegion>::iterator _i=_i_1->second.begin(); _i!=_i_1->second.end(); _i++){
-                  std::cout<<"\t 1.INFO"<<_i->other_pos<<"("<<(_i->map_strand==0?"+":"-")<<_i->chrn<<":"<<_i->ref_start_pos<<"-"<<_i->ref_end_pos<<"/"<<_i->qry_name<<":"<<_i->qry_start_pos<<"-"<<_i->qry_end_pos<<") "<<std::endl;
+                  std::cout<<"\t 1.INFO "<<_i->other_pos<<"("<<(_i->map_strand==0?"+":"-")<<_i->chrn<<":"<<_i->ref_start_pos<<"-"<<_i->ref_end_pos<<"/"<<_i->qry_name<<":"<<_i->qry_start_pos<<"-"<<_i->qry_end_pos<<") "<<std::endl;
                }
             }
             for(; _i_2!=_d_dp_it->second.cand2.end(); _i_2++){
                for(std::vector<GenomicMapRegion>::iterator _i=_i_2->second.begin(); _i!=_i_2->second.end(); _i++){
-                  std::cout<<"\t 2.INFO"<<_i->other_pos<<"("<<(_i->map_strand==0?"+":"-")<<_i->chrn<<":"<<_i->ref_start_pos<<"-"<<_i->ref_end_pos<<"/"<<_i->qry_name<<":"<<_i->qry_start_pos<<"-"<<_i->qry_end_pos<<") "<<std::endl;
+                  std::cout<<"\t 2.INFO "<<_i->other_pos<<"("<<(_i->map_strand==0?"+":"-")<<_i->chrn<<":"<<_i->ref_start_pos<<"-"<<_i->ref_end_pos<<"/"<<_i->qry_name<<":"<<_i->qry_start_pos<<"-"<<_i->qry_end_pos<<") "<<std::endl;
                }
             }
             if (_gp_pair_map.find(_fg_it->first)==_gp_pair_map.end()){
@@ -712,10 +733,26 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
       _gf_time[_fg_cand[_gpp_m_i->first].g2].push_back(_gpp_m_i->first);
    }
 
+   std::map<std::string, int> op_time_map;
    std::sort(_gp_rank.begin(), _gp_rank.end(), compare_support);
    for(std::vector<NumStrPair>::reverse_iterator _gp_it=_gp_rank.rbegin(); _gp_it!=_gp_rank.rend(); _gp_it++){
-      if (_gf_time[_fg_cand[_gp_it->_str_].g2].size()>2 || _gf_time[_fg_cand[_gp_it->_str_].g1].size()>2) { continue; }
-      else if ((_gf_time[_fg_cand[_gp_it->_str_].g2].size()>1 || _gf_time[_fg_cand[_gp_it->_str_].g1].size()>1) && _gp_it->_num_<10){ continue; }
+      std::map<std::string, int>::iterator it_g2 = op_time_map.find(_fg_cand[_gp_it->_str_].g2);
+      std::map<std::string, int>::iterator it_g1 = op_time_map.find(_fg_cand[_gp_it->_str_].g1);
+      if (it_g2 == op_time_map.end()){
+         op_time_map[_fg_cand[_gp_it->_str_].g2 ] = 1;
+      }else{
+         it_g2->second +=1;
+      }
+      if (it_g1 == op_time_map.end()){
+         op_time_map[_fg_cand[_gp_it->_str_].g1 ] = 1;
+      }else{
+         it_g1->second +=1;
+      }
+
+      if (op_time_map[_fg_cand[_gp_it->_str_].g2 ] > 2 || op_time_map[_fg_cand[_gp_it->_str_].g1 ] > 2){
+         if (_gf_time[_fg_cand[_gp_it->_str_].g2].size()>2 || _gf_time[_fg_cand[_gp_it->_str_].g1].size()>2) { continue; }
+         else if ((_gf_time[_fg_cand[_gp_it->_str_].g2].size()>1 || _gf_time[_fg_cand[_gp_it->_str_].g1].size()>1) && _gp_it->_num_<10){ continue; }
+      }
       std::cout<<_gp_pair_map[_gp_it->_str_];
    }
 
