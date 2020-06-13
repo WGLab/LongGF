@@ -31,7 +31,7 @@
 #include "_com_structs_.h"
 
 //                    multi_map_reads_it->first________second;                                      
-int check_align_ovlp_gene(std::string _qryname, std::vector<GenomicMapRegion>& _this_alignment_list, std::map<std::string, GeneFusionCand>& _fg_cand, std::map<std::string, int64_t>& _gene_in_multi_map,std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> > >&  m_gene_list, const int min_len_ovlp, std::vector< std::map<int64_t, bool> >& _this_ref_map_info ){
+int check_align_ovlp_gene(std::string _qryname, std::vector<GenomicMapRegion>& _this_alignment_list, std::map<std::string, GeneFusionCand>& _fg_cand, std::map<std::string, int64_t>& _gene_in_multi_map,std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> > >&  m_gene_list, const int min_len_ovlp, std::vector< std::map<int64_t, bool> >& _this_ref_map_info, const int output_flag ){
    std::map<std::string, GeneFusionCand>::iterator _fg_it;
    std::map<std::string, std::vector<GenomicMapRegion> >::iterator _g_map_it;
 
@@ -89,7 +89,7 @@ int check_align_ovlp_gene(std::string _qryname, std::vector<GenomicMapRegion>& _
          }
          _gene_in_multi_map[chr_g_it->first] += 1;
       }
-      if (_ovlp_rec.size()>1){
+      if (_ovlp_rec.size()>1 && (output_flag&1)){
          std::cout<<"Multiple_ovlp_gene "<<_gmr_it->qry_name<<":"<<_gmr_it->qry_start_pos<<"-"<<_gmr_it->qry_end_pos<<" " <<_gmr_it->map_strand<<"/"<<_gmr_it->chrn<<":"<<_gmr_it->ref_start_pos<<"-"<<_gmr_it->ref_end_pos<<std::endl;
          for(std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> >::iterator >::iterator _ovlp_r_i=_ovlp_rec.begin(); _ovlp_r_i!=_ovlp_rec.end(); _ovlp_r_i++){
             std::cout<<"\t"<<_ovlp_r_i->second->second->get_ovlp(*_gmr_it)<<"/"<<_ovlp_len[_ovlp_r_i->first]<<" "<<_ovlp_r_i->second->second->_to_string()<<std::endl;
@@ -162,7 +162,7 @@ int check_align_ovlp_gene(std::string _qryname, std::vector<GenomicMapRegion>& _
    return 1;
 }
 
-int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const int min_len_ovlp, const int64_t _bin_size, const int _used_pseudogene, const int64_t _min_map_len, const int _used_secondary_alignment, const int _min_sup_read){
+int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const int min_len_ovlp, const int64_t _bin_size, const int _used_pseudogene, const int64_t _min_map_len, const int _used_secondary_alignment, const int _min_sup_read, const int output_flag){
    std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> > > m_gene_list; 
    std::map<std::string, std::string> _gid_to_gn;
    const char * gt_list1[100] = {"IG_C_gene","IG_D_gene","IG_J_gene","IG_LV_gene","IG_V_gene","TR_C_gene","TR_J_gene","TR_V_gene","TR_D_gene","IG_pseudogene","IG_C_pseudogene","IG_J_pseudogene","IG_V_pseudogene","TR_V_pseudogene","TR_J_pseudogene","nonsense_mediated_decay","non_stop_decay","protein_coding","ambiguous_orf","pseudogene","processed_pseudogene","polymorphic_pseudogene","transcribed_processed_pseudogene","transcribed_unprocessed_pseudogene","transcribed_unitary_pseudogene","translated_processed_pseudogene","translated_unprocessed_pseudogene","unitary_pseudogene","unprocessed_pseudogene","disrupted_domain"};
@@ -226,7 +226,7 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
    hdr = sam_hdr_read(in_bam);
    std::string _this_q_name("");
    std::map<uint64_t, bool> _this_map_info;
-   std::vector< std::map<int64_t, bool> > _this_ref_map_info;
+   std::map< std::string, std::vector< std::map<int64_t, bool> > > _this_ref_map_info;
 
    int64_t num_of_mult_map_qry = 0;
    
@@ -261,10 +261,14 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
             num_ins_this = 0;
   
             if (multi_map_reads[_this_q_name].size()<2){
-               multi_map_reads.erase(_this_q_name); 
+               multi_map_reads.erase(_this_q_name);
+               _this_ref_map_info.erase(_this_q_name); 
             }else{
                num_of_mult_map_qry += 1;
-               check_align_ovlp_gene(_this_q_name, multi_map_reads[_this_q_name], _fg_cand, _gene_in_multi_map, m_gene_list,  min_len_ovlp, _this_ref_map_info ); 
+               if (output_flag & 16){
+                  check_align_ovlp_gene(_this_q_name, multi_map_reads[_this_q_name], _fg_cand, _gene_in_multi_map, m_gene_list,  min_len_ovlp, _this_ref_map_info[_this_q_name], output_flag ); 
+                  _this_ref_map_info.erase(_this_q_name);
+               }
             }
  
             if (read_len_map[_this_q_name] < _this_map_info.size()){
@@ -272,13 +276,14 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
             }
             mapped_bases += _this_map_info.size();
             _this_map_info.clear();
-            _this_ref_map_info.clear();
+            //_this_ref_map_info.clear();
         }
         _this_q_name = std::string(m_qname);
         
         multi_map_reads_it = multi_map_reads.find(m_qname);
         if (multi_map_reads_it==multi_map_reads.end()){
            multi_map_reads[m_qname] = std::vector<GenomicMapRegion>();
+           _this_ref_map_info[m_qname] = std::vector< std::map<int64_t, bool> >();
         }
 
         //fprintf(stdout, "For read pos (%s).\n", m_qname.c_str());
@@ -390,7 +395,7 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
 
         if (_min_map_len<_this_gmr.qry_end_pos-_this_gmr.qry_start_pos){
            multi_map_reads[m_qname].push_back(_this_gmr);
-           _this_ref_map_info.push_back(_this_ref_map);
+           _this_ref_map_info[m_qname].push_back(_this_ref_map);
         }
    }
    fprintf(stdout, "Time consumed to read bam: %.2fs\n", (double)(clock() - _start_time)/CLOCKS_PER_SEC);
@@ -403,17 +408,21 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
 
       if (multi_map_reads[_this_q_name].size()<2){
           multi_map_reads.erase(_this_q_name);
+          _this_ref_map_info.erase(_this_q_name);
       }else{
           num_of_mult_map_qry += 1;
-          check_align_ovlp_gene(_this_q_name, multi_map_reads[_this_q_name], _fg_cand, _gene_in_multi_map, m_gene_list,  min_len_ovlp, _this_ref_map_info  );
-       }
+          if (output_flag & 16){
+             check_align_ovlp_gene(_this_q_name, multi_map_reads[_this_q_name], _fg_cand, _gene_in_multi_map, m_gene_list,  min_len_ovlp, _this_ref_map_info[_this_q_name], output_flag  );
+             _this_ref_map_info.erase(_this_q_name);
+          }
+      }
 
       if (read_len_map[_this_q_name] < _this_map_info.size()){
           fprintf(stderr, "Warning!! Mapped bases(%d) is more than total bases(%d) for %s.\n", read_len_map[_this_q_name], _this_map_info.size(), _this_q_name.c_str());
       }
       mapped_bases += _this_map_info.size();
       _this_map_info.clear();
-      _this_ref_map_info.clear();
+      //_this_ref_map_info.clear();
    }
    _this_q_name = std::string(m_qname);
 
@@ -481,14 +490,19 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
    // for gene fusion
    fprintf(stdout, "# reads with multipe mapping = %llu=%llu/%llu(%.2f)\n", num_of_mult_map_qry, multi_map_reads.size(), read_len_list.size(), ((double)(multi_map_reads.size())/read_len_list.size())*100);
    fflush(stdout);
-   /*int64_t _h_i = 0;
-   for (multi_map_reads_it=multi_map_reads.begin(); multi_map_reads_it!=multi_map_reads.end(); multi_map_reads_it++){
-      _h_i += 1;
-      if (_h_i%50000==0 || _h_i<5){
-          std::cout<<"Handle ="<<_h_i<<"/"<<multi_map_reads.size()<<" "<<_fg_cand.size()<<" Time-elapsed="<<int(double(std::clock()-_start_t)*100/CLOCKS_PER_SEC)/100.00<<std::endl;
+   if (! (output_flag & 16) ){
+      int64_t _h_i = 0;
+      clock_t _start_t = std::clock();
+      for (multi_map_reads_it=multi_map_reads.begin(); multi_map_reads_it!=multi_map_reads.end(); multi_map_reads_it++){
+         _h_i += 1;
+         if (_h_i%50000==0 || _h_i<5){
+            std::cout<<"Handle ="<<_h_i<<"/"<<multi_map_reads.size()<<" "<<_fg_cand.size()<<" Time-elapsed="<<int(double(std::clock()-_start_t)*100/CLOCKS_PER_SEC)/100.00<<std::endl;
+         }
+         //key: gene name
+
+         check_align_ovlp_gene(multi_map_reads_it->first, multi_map_reads_it->second, _fg_cand, _gene_in_multi_map, m_gene_list,  min_len_ovlp, _this_ref_map_info[multi_map_reads_it->first], output_flag  );
       }
-      //key: gene name
-   }*/
+   }
 
    std::cout<<"Finish _fg_cand[_gene_pair="<<_fg_cand.size()<<std::endl;
    fflush(stdout);
@@ -536,11 +550,11 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
                   int64_t min_end = _q_grm_it->qry_end_pos   > _oq_grm_it->qry_end_pos   ? _oq_grm_it->qry_end_pos  : _q_grm_it->qry_end_pos;
                   if (min_end - max_str > 50 || min_end - max_str < -20){ 
                       if (min_end - max_str > 50){
-                         std::cout<<"More-ovlp ";
+                         if (output_flag&2) {std::cout<<"More-ovlp ";}
                       }else{
-                         std::cout<<"Too-far ";
+                         if (output_flag&4) {std::cout<<"Too-far "; }
                       }
-                      std::cout<<"Read1: "<<(_q_grm_it->map_strand==0?"+":"-")<<_q_grm_it->chrn<<":"<<_q_grm_it->ref_start_pos<<"-"<<_q_grm_it->ref_end_pos<<"/"<<_q_grm_it->qry_name<<":"<<_q_grm_it->qry_start_pos<<"-"<<_q_grm_it->qry_end_pos<<" >>> "<<max_str<<" "<<min_end<<" Read2: "<<(_oq_grm_it->map_strand==0?"+":"-")<<_oq_grm_it->chrn<<":"<<_oq_grm_it->ref_start_pos<<"-"<<_oq_grm_it->ref_end_pos<<"/"<<_oq_grm_it->qry_name<<":"<<_oq_grm_it->qry_start_pos<<"-"<<_oq_grm_it->qry_end_pos<<" >>> "<<min_end-max_str<<std::endl;
+                      if ((output_flag&2) || (output_flag&4)) { std::cout<<"Read1: "<<(_q_grm_it->map_strand==0?"+":"-")<<_q_grm_it->chrn<<":"<<_q_grm_it->ref_start_pos<<"-"<<_q_grm_it->ref_end_pos<<"/"<<_q_grm_it->qry_name<<":"<<_q_grm_it->qry_start_pos<<"-"<<_q_grm_it->qry_end_pos<<" >>> "<<max_str<<" "<<min_end<<" Read2: "<<(_oq_grm_it->map_strand==0?"+":"-")<<_oq_grm_it->chrn<<":"<<_oq_grm_it->ref_start_pos<<"-"<<_oq_grm_it->ref_end_pos<<"/"<<_oq_grm_it->qry_name<<":"<<_oq_grm_it->qry_start_pos<<"-"<<_oq_grm_it->qry_end_pos<<" >>> "<<min_end-max_str<<std::endl; }
                       continue; 
                   }
                   if ((min_end - max_str)/double(_q_grm_it->qry_end_pos - _q_grm_it->qry_start_pos)>0.4){ continue; }
@@ -702,15 +716,17 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
                oss_tostr<<"\n";  
             }
             oss_tostr<<"SumGF\t"<<_gid_to_gn[_fg_it->second.g1]<<":"<<_gid_to_gn[_fg_it->second.g2]<<" "<<max_sup_1<<" "<<_i_1->second[0].chrn<<":"<<int64_t(std::accumulate(std::begin(pos_1), std::end(pos_1), 0.0) / pos_1.size())<<" "<<_i_2->second[0].chrn<<":"<<int64_t(std::accumulate(std::begin(pos_2), std::end(pos_2), 0.0) / pos_2.size())<<"\n";
-            
-            for(; _i_1!=_d_dp_it->second.cand1.end(); _i_1++){
-               for(std::vector<GenomicMapRegion>::iterator _i=_i_1->second.begin(); _i!=_i_1->second.end(); _i++){
-                  std::cout<<"\t 1.INFO "<<_i->other_pos<<"("<<(_i->map_strand==0?"+":"-")<<_i->chrn<<":"<<_i->ref_start_pos<<"-"<<_i->ref_end_pos<<"/"<<_i->qry_name<<":"<<_i->qry_start_pos<<"-"<<_i->qry_end_pos<<") "<<std::endl;
+           
+            if (output_flag&8) {
+               for(; _i_1!=_d_dp_it->second.cand1.end(); _i_1++){
+                  for(std::vector<GenomicMapRegion>::iterator _i=_i_1->second.begin(); _i!=_i_1->second.end(); _i++){
+                     std::cout<<"\t 1.INFO "<<_i->other_pos<<"("<<(_i->map_strand==0?"+":"-")<<_i->chrn<<":"<<_i->ref_start_pos<<"-"<<_i->ref_end_pos<<"/"<<_i->qry_name<<":"<<_i->qry_start_pos<<"-"<<_i->qry_end_pos<<") "<<std::endl;
+                  }
                }
-            }
-            for(; _i_2!=_d_dp_it->second.cand2.end(); _i_2++){
-               for(std::vector<GenomicMapRegion>::iterator _i=_i_2->second.begin(); _i!=_i_2->second.end(); _i++){
-                  std::cout<<"\t 2.INFO "<<_i->other_pos<<"("<<(_i->map_strand==0?"+":"-")<<_i->chrn<<":"<<_i->ref_start_pos<<"-"<<_i->ref_end_pos<<"/"<<_i->qry_name<<":"<<_i->qry_start_pos<<"-"<<_i->qry_end_pos<<") "<<std::endl;
+               for(; _i_2!=_d_dp_it->second.cand2.end(); _i_2++){
+                  for(std::vector<GenomicMapRegion>::iterator _i=_i_2->second.begin(); _i!=_i_2->second.end(); _i++){
+                     std::cout<<"\t 2.INFO "<<_i->other_pos<<"("<<(_i->map_strand==0?"+":"-")<<_i->chrn<<":"<<_i->ref_start_pos<<"-"<<_i->ref_end_pos<<"/"<<_i->qry_name<<":"<<_i->qry_start_pos<<"-"<<_i->qry_end_pos<<") "<<std::endl;
+                  }
                }
             }
             if (_gp_pair_map.find(_fg_it->first)==_gp_pair_map.end()){
@@ -777,7 +793,7 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
 
 int usage(FILE * fp, char * argv[])
 {
-    fprintf (fp, "Usage: %s <input_bam> <input_gtf> <min-overlap-len> <bin_size> <min-map-len> [pseudogene:0(default)/1] [Secondary_alignment:0(default)] [min_sup_read:2(default)]\n", argv[0]);
+    fprintf (fp, "Usage: %s <input_bam> <input_gtf> <min-overlap-len> <bin_size> <min-map-len> [pseudogene:0(default)/1] [Secondary_alignment:0(default)] [min_sup_read:2(default)] [output_flag:0]\n", argv[0]);
     return 0;
 }
 
@@ -792,6 +808,7 @@ int main (int argc, char * argv[])
    int _used_pseudogene = 0;
    int _used_secondary_alignment = 0;
    int _min_sup_read = 2;
+   int output_flag = 0;
 
    if (argc<6){
       usage(stderr, argv);
@@ -816,6 +833,12 @@ int main (int argc, char * argv[])
    }
    if (argc>8){
       _min_sup_read = atoi(argv[8]);
+   }
+   if (argc>9){
+      output_flag = atoi(argv[9]);
+   }
+   if (output_flag<0){
+      output_flag = 0;
    }
 
    if (access(in_bam, F_OK)==-1){
@@ -842,6 +865,6 @@ int main (int argc, char * argv[])
       return 1;
    }
 
-   m_check_gene_fusion(in_bam, in_gtf_file, min_ovlp_len, _bin_size, _used_pseudogene, _min_map_len, _used_secondary_alignment, _min_sup_read);
+   m_check_gene_fusion(in_bam, in_gtf_file, min_ovlp_len, _bin_size, _used_pseudogene, _min_map_len, _used_secondary_alignment, _min_sup_read, output_flag);
 }
 
