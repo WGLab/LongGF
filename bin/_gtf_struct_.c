@@ -84,6 +84,21 @@ int64_t _gene_entry_::get_coding_ovlp(GenomicMapRegion & _gmr_){
       return 0;
    }
 }
+int64_t _gene_entry_::get_coding_ovlp(std::map<int64_t, bool>& _this_map_info, std::string _t_chrn){
+  if (_t_chrn.compare(_this_gr.chrn)==0){
+      int64_t _t_len = 0;
+      for (std::vector< std::shared_ptr<_gtf_entry_> >::iterator _f_it = _sub_list.begin(); _f_it != _sub_list.end(); _f_it++){
+         int64_t _c_len =(*_f_it)->get_coding_ovlp(_this_map_info, _t_chrn);
+         if (_c_len>_t_len){
+             _t_len = _c_len;
+         }
+      }
+      return _t_len;
+   }else{
+      return 0;
+   } 
+}
+
 
 int64_t _exon_entry_::get_coding_length(){
    int64_t _e_l = get_length();
@@ -98,6 +113,18 @@ int64_t _exon_entry_::get_coding_ovlp(GenomicMapRegion & _gmr_){
    //int64_t min_end   = (_gmr_.ref_end_pos  <_this_gr.end_pos  ?_gmr_.ref_end_pos  :_this_gr.end_pos);
    //if (min_end-max_start>0){ return min_end-max_start; }
    //else{ return 0; }
+}
+int64_t _exon_entry_::get_coding_ovlp(std::map<int64_t, bool>& _this_map_info, std::string _t_chrn){
+   int64_t _t_ovlp_l = 0;
+  
+   for (int64_t _t_pos=_this_gr.start_pos-1; _t_pos<_this_gr.end_pos; _t_pos++){
+      _check_pos_it = _this_map_info.find(_t_pos);
+      if (_check_pos_it != _this_map_info.end()){
+          _t_ovlp_l += 1;
+      }
+   }
+ 
+   return _t_ovlp_l; 
 }
 
 int64_t _transcript_entry_::get_coding_length(){
@@ -118,6 +145,13 @@ int64_t _transcript_entry_::get_coding_ovlp(GenomicMapRegion & _gmr_){
    //std::cout<<"\tTestovlp t="<<_gmr_.chrn<<":"<<_gmr_.ref_start_pos<<":"<<_gmr_.ref_end_pos<< " "<<_this_gr.chrn<<":"+std::to_string(_this_gr.start_pos)+"-"+std::to_string(_this_gr.end_pos)<<" " <<_t_len<<std::endl;
    return _t_len;
 }
+int64_t _transcript_entry_::get_coding_ovlp(std::map<int64_t, bool>& _this_map_info, std::string _t_chrn){
+   int64_t _t_len = 0;
+   for (std::vector< std::shared_ptr<_gtf_entry_> >::iterator _f_it = _sub_list.begin(); _f_it != _sub_list.end(); _f_it++){
+      _t_len += (*_f_it)->get_coding_ovlp(_this_map_info, _t_chrn);
+   }
+   return _t_len;
+}
 
 int64_t _other_entry_::get_coding_length(){
    return 0;
@@ -127,6 +161,9 @@ int64_t _other_entry_::get_coding_length(){
    else{ return 0; }
 }
 int64_t _other_entry_::get_coding_ovlp(GenomicMapRegion & _gmr_){
+   return 0;
+}
+int64_t _other_entry_::get_coding_ovlp(std::map<int64_t, bool>& _this_map_info, std::string _t_chrn){
    return 0;
 }
 

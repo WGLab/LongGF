@@ -8,6 +8,7 @@
 
 #include <memory>
 #include <ctime>
+#include <numeric>
 
 #include <list>
 #include <iostream>
@@ -29,6 +30,137 @@
 #include "_com_fun_.h"
 #include "_com_structs_.h"
 
+//                    multi_map_reads_it->first________second;                                      
+int check_align_ovlp_gene(std::string _qryname, std::vector<GenomicMapRegion>& _this_alignment_list, std::map<std::string, GeneFusionCand>& _fg_cand, std::map<std::string, int64_t>& _gene_in_multi_map,std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> > >&  m_gene_list, const int min_len_ovlp, std::vector< std::map<int64_t, bool> >& _this_ref_map_info ){
+   std::map<std::string, GeneFusionCand>::iterator _fg_it;
+   std::map<std::string, std::vector<GenomicMapRegion> >::iterator _g_map_it;
+
+   if (_this_ref_map_info.size() != _this_alignment_list.size()){
+      std::cout<<"Error!! not equal for "<<_qryname<< " " << _this_alignment_list.size() << "==" << _this_ref_map_info.size() <<std::endl;
+   }
+
+   //key: gene name
+   std::map<std::string, std::vector<GenomicMapRegion> > _g_list;
+   // get all alignment with a gene
+   // for each alignment
+   int ref_info_i = 0;
+   for(std::vector<GenomicMapRegion>::iterator _gmr_it=_this_alignment_list.begin(); _gmr_it!=_this_alignment_list.end(); _gmr_it++,ref_info_i++){
+      std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> >::iterator > _ovlp_rec;
+      std::map<std::string, int64_t > _ovlp_len;
+      // check the alignment against each gene
+      for (std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> > >::iterator gl_it=m_gene_list.begin(); gl_it!=m_gene_list.end(); gl_it++){
+         if(gl_it->first.compare(_gmr_it->chrn)!=0) { continue; }
+         for(std::map<std::string, std::shared_ptr<_gtf_entry_> >::iterator chr_g_it=gl_it->second.begin(); chr_g_it!=gl_it->second.end(); chr_g_it++){
+             //int64_t _t_code_ovlp = chr_g_it->second->get_coding_ovlp(*_gmr_it);
+             int64_t _t_code_ovlp = chr_g_it->second->get_coding_ovlp(_this_ref_map_info.at(ref_info_i), _gmr_it->chrn);
+             //if ((chr_g_it->second->get_name().compare("TMPRSS2")==0 || chr_g_it->second->get_name().compare("ERG")==0 || chr_g_it->second->get_name().compare("ABL1")==0 || chr_g_it->second->get_name().compare("BCR")==0) && _t_code_ovlp>10){
+             //   std::cout<<"Check "<<_gmr_it->qry_name<<":"<<_gmr_it->qry_start_pos<<"-"<<_gmr_it->qry_end_pos<<" " <<_gmr_it->map_strand<<"/"<<_gmr_it->chrn<<":"<<_gmr_it->ref_start_pos<<"-"<<_gmr_it->ref_end_pos<<" "<<chr_g_it->second->get_ovlp(*_gmr_it)<<"/"<<chr_g_it->second->get_coding_ovlp(*_gmr_it)<<" "<<chr_g_it->second->_to_string()<<std::endl;
+             //}
+             //if (chr_g_it->second->get_coding_ovlp(*_gmr_it) > min_len_ovlp){
+             //   std::cout<<"Check "<<_qryname<<" "<<_gmr_it->qry_name<<":"<<_gmr_it->qry_start_pos<<"-"<<_gmr_it->qry_end_pos<<" " <<_gmr_it->map_strand<<"/"<<_gmr_it->chrn<<":"<<_gmr_it->ref_start_pos<<"-"<<_gmr_it->ref_end_pos<<" "<<chr_g_it->second->get_ovlp(*_gmr_it)<<"/"<<chr_g_it->second->get_coding_ovlp(*_gmr_it)<<"??"<<_t_code_ovlp<<">>"<<_this_ref_map_info.at(ref_info_i).size()<<" "<<chr_g_it->second->_to_string()<<std::endl;
+             //}
+             if (chr_g_it->second->get_ovlp(*_gmr_it) > min_len_ovlp && _t_code_ovlp> min_len_ovlp){ //chr_g_it->second->get_coding_ovlp(*_gmr_it) > min_len_ovlp){
+                 if (_ovlp_rec.find(chr_g_it->first)==_ovlp_rec.end()){
+                    _ovlp_rec[chr_g_it->first] = chr_g_it;
+                    _ovlp_len[chr_g_it->first] = _t_code_ovlp; //chr_g_it->second->get_coding_ovlp(*_gmr_it);
+                 }else{
+                    std::cout<<"Warning!!! Duplicate genes " << chr_g_it->first <<std::endl;
+                 }
+             }
+         }
+      }
+      int64_t _max_l = 0;
+      std::string _max_l_k;
+      for(std::map<std::string, int64_t >::iterator _ovlp_l_i=_ovlp_len.begin(); _ovlp_l_i!=_ovlp_len.end(); _ovlp_l_i++){
+         if (_ovlp_l_i->second>_max_l){
+            _max_l = _ovlp_l_i->second;
+            _max_l_k = _ovlp_l_i->first;
+         }
+      }
+      if (_max_l>min_len_ovlp){
+         std::map<std::string, std::shared_ptr<_gtf_entry_> >::iterator chr_g_it= _ovlp_rec[_max_l_k];
+         _g_map_it = _g_list.find(chr_g_it->first);
+         if (_g_map_it==_g_list.end()){
+             _g_list[chr_g_it->first] = std::vector<GenomicMapRegion>();
+         }
+         _g_list[chr_g_it->first].push_back(*_gmr_it);
+         if(_gene_in_multi_map.find(chr_g_it->first)==_gene_in_multi_map.end()){
+             _gene_in_multi_map[chr_g_it->first] = 0;
+         }
+         _gene_in_multi_map[chr_g_it->first] += 1;
+      }
+      if (_ovlp_rec.size()>1){
+         std::cout<<"Multiple_ovlp_gene "<<_gmr_it->qry_name<<":"<<_gmr_it->qry_start_pos<<"-"<<_gmr_it->qry_end_pos<<" " <<_gmr_it->map_strand<<"/"<<_gmr_it->chrn<<":"<<_gmr_it->ref_start_pos<<"-"<<_gmr_it->ref_end_pos<<std::endl;
+         for(std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> >::iterator >::iterator _ovlp_r_i=_ovlp_rec.begin(); _ovlp_r_i!=_ovlp_rec.end(); _ovlp_r_i++){
+            std::cout<<"\t"<<_ovlp_r_i->second->second->get_ovlp(*_gmr_it)<<"/"<<_ovlp_len[_ovlp_r_i->first]<<" "<<_ovlp_r_i->second->second->_to_string()<<std::endl;
+         }
+      }
+   }
+
+   // less than 2 genes; ignore.
+   if (_g_list.size()<2){ return 0; }
+
+   std::map<std::string, std::vector<GenomicMapRegion> >::iterator g_l_it1 = _g_list.begin();
+   std::map<std::string, std::vector<GenomicMapRegion> >::iterator g_l_it2 = _g_list.begin();
+   std::map<std::string, std::vector<GenomicMapRegion> >::iterator g_l_it_t1;
+   std::map<std::string, std::vector<GenomicMapRegion> >::iterator g_l_it_t2;
+   g_l_it2++;
+   for(; g_l_it2!=_g_list.end(); g_l_it1++,g_l_it2++){
+       // check gene overlap;
+       // ignore those gene pair whose two genes are overlapped.
+       if (m_gene_list[g_l_it1->second[0].chrn][g_l_it1->first]->get_ovlp(m_gene_list[g_l_it2->second[0].chrn][g_l_it2->first]) > 10){
+          continue;
+       }
+
+       std::string _gene_pair;
+       if (g_l_it1->first>g_l_it2->first){
+          _gene_pair = g_l_it2->first + g_l_it1->first;
+          g_l_it_t1 = g_l_it2;
+          g_l_it_t2 = g_l_it1;
+       }else if (g_l_it1->first<g_l_it2->first){
+          _gene_pair = g_l_it1->first + g_l_it2->first;
+          g_l_it_t1 = g_l_it1;
+          g_l_it_t2 = g_l_it2;
+       }else{
+          fprintf(stderr, "Warning!!! Two genes are same: %s vs %s\n", g_l_it1->first.c_str(), g_l_it2->first.c_str());
+          continue;
+       }
+       _fg_it = _fg_cand.find(_gene_pair);
+       if (_fg_it==_fg_cand.end()){
+           GeneFusionCand _new_fg;
+           if (g_l_it1->first>g_l_it2->first){
+               _new_fg.g1 = g_l_it2->first;
+               _new_fg.g2 = g_l_it1->first;
+           }else{
+               _new_fg.g1 = g_l_it1->first;
+               _new_fg.g2 = g_l_it2->first;
+           }
+           _fg_cand[_gene_pair] = _new_fg;
+       }
+
+       std::map<std::string, std::vector<GenomicMapRegion> >::iterator _q_m_it;
+       // cand*: key------query name
+       _q_m_it = _fg_cand[_gene_pair].cand1.find(_qryname);
+       if (_q_m_it==_fg_cand[_gene_pair].cand1.end()){
+          _fg_cand[_gene_pair].cand1[_qryname] = std::vector<GenomicMapRegion>();
+       }
+       for(std::vector<GenomicMapRegion>::iterator _gp_gmr_it=g_l_it_t1->second.begin(); _gp_gmr_it!=g_l_it_t1->second.end(); _gp_gmr_it++){
+          _fg_cand[_gene_pair].cand1[_qryname].push_back(*_gp_gmr_it);
+       }
+
+       _q_m_it = _fg_cand[_gene_pair].cand2.find(_qryname);
+       if (_q_m_it==_fg_cand[_gene_pair].cand2.end()){
+          _fg_cand[_gene_pair].cand2[_qryname] = std::vector<GenomicMapRegion>();
+       }
+       for(std::vector<GenomicMapRegion>::iterator _gp_gmr_it=g_l_it_t2->second.begin(); _gp_gmr_it!=g_l_it_t2->second.end(); _gp_gmr_it++){
+          _fg_cand[_gene_pair].cand2[_qryname].push_back(*_gp_gmr_it);
+       }
+   }
+
+   //std::cout<<"Test: "<<_fg_cand.size()<<std::endl;
+
+   return 1;
+}
 
 int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const int min_len_ovlp, const int64_t _bin_size, const int _used_pseudogene, const int64_t _min_map_len, const int _used_secondary_alignment, const int _min_sup_read){
    std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> > > m_gene_list; 
@@ -77,6 +209,9 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
    // key: query name; 
    std::unordered_map<std::string, std::vector<GenomicMapRegion> > multi_map_reads;
    std::unordered_map<std::string, std::vector<GenomicMapRegion> >::iterator multi_map_reads_it;
+   std::map<std::string, GeneFusionCand> _fg_cand;
+   std::map<std::string, GeneFusionCand>::iterator _fg_it;
+   std::map<std::string, int64_t> _gene_in_multi_map;
 
    fprintf(stdout, "Open sam file (%s).\n", in_bam_file);
    bam_one_alignment = bam_init1();
@@ -91,6 +226,9 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
    hdr = sam_hdr_read(in_bam);
    std::string _this_q_name("");
    std::map<uint64_t, bool> _this_map_info;
+   std::vector< std::map<int64_t, bool> > _this_ref_map_info;
+
+   int64_t num_of_mult_map_qry = 0;
    
    std::string m_qname;
    fprintf(stdout, "Read sam file (%s).\n", in_bam_file);
@@ -113,6 +251,8 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
             read_len_map[m_qname] = bam_one_alignment->core.l_qseq;
         }
 
+        std::map<int64_t, bool> _this_ref_map;
+
         //fprintf(stdout, "For read check (%s).\n", m_qname.c_str());
         if (_this_q_name.size()>0 && _this_q_name.compare(m_qname)!=0){
             num_del += num_del_this;
@@ -122,6 +262,9 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
   
             if (multi_map_reads[_this_q_name].size()<2){
                multi_map_reads.erase(_this_q_name); 
+            }else{
+               num_of_mult_map_qry += 1;
+               check_align_ovlp_gene(_this_q_name, multi_map_reads[_this_q_name], _fg_cand, _gene_in_multi_map, m_gene_list,  min_len_ovlp, _this_ref_map_info ); 
             }
  
             if (read_len_map[_this_q_name] < _this_map_info.size()){
@@ -129,6 +272,7 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
             }
             mapped_bases += _this_map_info.size();
             _this_map_info.clear();
+            _this_ref_map_info.clear();
         }
         _this_q_name = std::string(m_qname);
         
@@ -169,6 +313,7 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
                    //fprintf(stdout, "%s%d", "M", m_len);
                    for (int ai=0; ai<m_len; ai++){
                       _this_map_info[qry_alg_pos+ai] = true;
+                      _this_ref_map[ref_alg_pos+ai] = true;
                    }
                    if (is_first_match){
                       _this_gmr.qry_start_pos = qry_alg_pos;
@@ -216,6 +361,7 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
                    //fprintf(stdout, "%s%d", "X", m_len);
                    for (int ai=0; ai<m_len; ai++){
                       _this_map_info[qry_alg_pos+ai] = true;
+                      _this_ref_map[ref_alg_pos+ai] = true;
                    }
                    if (is_first_match){
                       _this_gmr.qry_start_pos = qry_alg_pos;
@@ -244,6 +390,7 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
 
         if (_min_map_len<_this_gmr.qry_end_pos-_this_gmr.qry_start_pos){
            multi_map_reads[m_qname].push_back(_this_gmr);
+           _this_ref_map_info.push_back(_this_ref_map);
         }
    }
    fprintf(stdout, "Time consumed to read bam: %.2fs\n", (double)(clock() - _start_time)/CLOCKS_PER_SEC);
@@ -256,13 +403,17 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
 
       if (multi_map_reads[_this_q_name].size()<2){
           multi_map_reads.erase(_this_q_name);
-      }
+      }else{
+          num_of_mult_map_qry += 1;
+          check_align_ovlp_gene(_this_q_name, multi_map_reads[_this_q_name], _fg_cand, _gene_in_multi_map, m_gene_list,  min_len_ovlp, _this_ref_map_info  );
+       }
 
       if (read_len_map[_this_q_name] < _this_map_info.size()){
           fprintf(stderr, "Warning!! Mapped bases(%d) is more than total bases(%d) for %s.\n", read_len_map[_this_q_name], _this_map_info.size(), _this_q_name.c_str());
       }
       mapped_bases += _this_map_info.size();
       _this_map_info.clear();
+      _this_ref_map_info.clear();
    }
    _this_q_name = std::string(m_qname);
 
@@ -328,156 +479,16 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
    fprintf(stdout, "\n");
 
    // for gene fusion
-   fprintf(stdout, "# reads with multipe mapping = %llu/%llu(%.2f)\n", multi_map_reads.size(), read_len_list.size(), ((double)(multi_map_reads.size())/read_len_list.size())*100);
+   fprintf(stdout, "# reads with multipe mapping = %llu=%llu/%llu(%.2f)\n", num_of_mult_map_qry, multi_map_reads.size(), read_len_list.size(), ((double)(multi_map_reads.size())/read_len_list.size())*100);
    fflush(stdout);
-   // key: gene pair
-   std::map<std::string, GeneFusionCand> _fg_cand;
-   std::map<std::string, GeneFusionCand>::iterator _fg_it;
-   std::map<std::string, std::vector<GenomicMapRegion> >::iterator _g_map_it;
-   std::map<std::string, int64_t> _gene_in_multi_map;
-   clock_t _start_t = std::clock();
-   int64_t _h_i = 0;
+   /*int64_t _h_i = 0;
    for (multi_map_reads_it=multi_map_reads.begin(); multi_map_reads_it!=multi_map_reads.end(); multi_map_reads_it++){
       _h_i += 1;
       if (_h_i%50000==0 || _h_i<5){
           std::cout<<"Handle ="<<_h_i<<"/"<<multi_map_reads.size()<<" "<<_fg_cand.size()<<" Time-elapsed="<<int(double(std::clock()-_start_t)*100/CLOCKS_PER_SEC)/100.00<<std::endl;
       }
       //key: gene name
-      std::map<std::string, std::vector<GenomicMapRegion> > _g_list;
-      // get all alignment with a gene
-      // for each alignment
-      for(std::vector<GenomicMapRegion>::iterator _gmr_it=multi_map_reads_it->second.begin(); _gmr_it!=multi_map_reads_it->second.end(); _gmr_it++){
-         std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> >::iterator > _ovlp_rec;
-         std::map<std::string, int64_t > _ovlp_len;
-         // check the alignment against each gene
-         for (std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> > >::iterator gl_it=m_gene_list.begin(); gl_it!=m_gene_list.end(); gl_it++){
-            if(gl_it->first.compare(_gmr_it->chrn)!=0) { continue; }
-            for(std::map<std::string, std::shared_ptr<_gtf_entry_> >::iterator chr_g_it=gl_it->second.begin(); chr_g_it!=gl_it->second.end(); chr_g_it++){
-                //if ((_gmr_it->qry_name.compare("35e82b56-9386-4144-94a3-15e560f45f40")==0 || _gmr_it->qry_name.compare("90bf2a20-9476-4c26-9a86-bb69bfa6a980")==0 || _gmr_it->qry_name.compare("a61c8185-46f7-4d00-8c1a-69a1b3b6efdb")==0) && (chr_g_it->second->get_name().compare("PSMA6")==0 || chr_g_it->second->get_name().compare("VMP1")==0)){
-                //   std::cout<<" Test "<<_gmr_it->qry_name<<":"<<_gmr_it->qry_start_pos<<"-"<<_gmr_it->qry_end_pos<<" " <<_gmr_it->map_strand<<"/"<<_gmr_it->chrn<<":"<<_gmr_it->ref_start_pos<<"-"<<_gmr_it->ref_end_pos<<" "<<chr_g_it->second->get_ovlp(*_gmr_it)<<"/"<<chr_g_it->second->get_coding_ovlp(*_gmr_it)<<" "<<chr_g_it->second->_to_string()<<std::endl;
-                //}
-
-                int64_t _t_code_ovlp = chr_g_it->second->get_coding_ovlp(*_gmr_it);
-                if ((chr_g_it->second->get_name().compare("TMPRSS2")==0 || chr_g_it->second->get_name().compare("ERG")==0 || chr_g_it->second->get_name().compare("ABL1")==0 || chr_g_it->second->get_name().compare("BCR")==0) && _t_code_ovlp>10){
-                   std::cout<<"Check "<<_gmr_it->qry_name<<":"<<_gmr_it->qry_start_pos<<"-"<<_gmr_it->qry_end_pos<<" " <<_gmr_it->map_strand<<"/"<<_gmr_it->chrn<<":"<<_gmr_it->ref_start_pos<<"-"<<_gmr_it->ref_end_pos<<" "<<chr_g_it->second->get_ovlp(*_gmr_it)<<"/"<<chr_g_it->second->get_coding_ovlp(*_gmr_it)<<" "<<chr_g_it->second->_to_string()<<std::endl;
-                }
-                if (chr_g_it->second->get_ovlp(*_gmr_it) > min_len_ovlp && _t_code_ovlp> min_len_ovlp){ //chr_g_it->second->get_coding_ovlp(*_gmr_it) > min_len_ovlp){
-                    if (_ovlp_rec.find(chr_g_it->first)==_ovlp_rec.end()){
-                       _ovlp_rec[chr_g_it->first] = chr_g_it;
-                       _ovlp_len[chr_g_it->first] = _t_code_ovlp; //chr_g_it->second->get_coding_ovlp(*_gmr_it);
-                    }else{
-                       std::cout<<"Warning!!! Duplicate genes " << chr_g_it->first <<std::endl;
-                    }
-                    continue;
-                    /*
-                    _g_map_it = _g_list.find(chr_g_it->first);
-                    if (_g_map_it==_g_list.end()){  _g_list[chr_g_it->first] = std::vector<GenomicMapRegion>(); }
-                    _g_list[chr_g_it->first].push_back(*_gmr_it);
-                    if(_gene_in_multi_map.find(chr_g_it->first)==_gene_in_multi_map.end()){ _gene_in_multi_map[chr_g_it->first] = 0; }
-                    _gene_in_multi_map[chr_g_it->first] += 1;*/
-                }
-            }
-         }
-         int64_t _max_l = 0;
-         std::string _max_l_k;
-         for(std::map<std::string, int64_t >::iterator _ovlp_l_i=_ovlp_len.begin(); _ovlp_l_i!=_ovlp_len.end(); _ovlp_l_i++){
-            if (_ovlp_l_i->second>_max_l){
-               _max_l = _ovlp_l_i->second;
-               _max_l_k = _ovlp_l_i->first;
-            }
-         }
-         if (_max_l>min_len_ovlp){
-            std::map<std::string, std::shared_ptr<_gtf_entry_> >::iterator chr_g_it= _ovlp_rec[_max_l_k];
-            _g_map_it = _g_list.find(chr_g_it->first);
-            if (_g_map_it==_g_list.end()){
-                _g_list[chr_g_it->first] = std::vector<GenomicMapRegion>();
-            }
-            _g_list[chr_g_it->first].push_back(*_gmr_it);
-            if(_gene_in_multi_map.find(chr_g_it->first)==_gene_in_multi_map.end()){
-                _gene_in_multi_map[chr_g_it->first] = 0;
-            }
-            _gene_in_multi_map[chr_g_it->first] += 1;
-         }
-         if (_ovlp_rec.size()>1){
-            std::cout<<"Multiple_ovlp_gene "<<_gmr_it->qry_name<<":"<<_gmr_it->qry_start_pos<<"-"<<_gmr_it->qry_end_pos<<" " <<_gmr_it->map_strand<<"/"<<_gmr_it->chrn<<":"<<_gmr_it->ref_start_pos<<"-"<<_gmr_it->ref_end_pos<<std::endl;
-            for(std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> >::iterator >::iterator _ovlp_r_i=_ovlp_rec.begin(); _ovlp_r_i!=_ovlp_rec.end(); _ovlp_r_i++){
-               std::cout<<"\t"<<_ovlp_r_i->second->second->get_ovlp(*_gmr_it)<<"/"<<_ovlp_len[_ovlp_r_i->first]<<" "<<_ovlp_r_i->second->second->_to_string()<<std::endl; 
-            }
-         }
-      }
-      // less than 2 genes; ignore.
-      if (_g_list.size()<2){ continue; }
-      //if (_g_list.size()<_min_sup_read){ continue; }
-
-      std::map<std::string, std::vector<GenomicMapRegion> >::iterator g_l_it1 = _g_list.begin();   
-      std::map<std::string, std::vector<GenomicMapRegion> >::iterator g_l_it2 = _g_list.begin();
-      std::map<std::string, std::vector<GenomicMapRegion> >::iterator g_l_it_t1; 
-      std::map<std::string, std::vector<GenomicMapRegion> >::iterator g_l_it_t2;
-      g_l_it2++;
-      for(; g_l_it2!=_g_list.end(); g_l_it1++,g_l_it2++){
-          // check gene overlap; 
-          // ignore those gene pair whose two genes are overlapped.
-          /*if (m_gene_list[g_l_it1->second[0].chrn][g_l_it1->first].chrn.compare(m_gene_list[g_l_it2->second[0].chrn][g_l_it2->first].chrn)==0){
-             int64_t max_start =  m_gene_list[g_l_it1->second[0].chrn][g_l_it1->first].start_pos > m_gene_list[g_l_it2->second[0].chrn][g_l_it2->first].start_pos ? m_gene_list[g_l_it1->second[0].chrn][g_l_it1->first].start_pos : m_gene_list[g_l_it2->second[0].chrn][g_l_it2->first].start_pos;
-             int64_t min_end = m_gene_list[g_l_it1->second[0].chrn][g_l_it1->first].end_pos < m_gene_list[g_l_it2->second[0].chrn][g_l_it2->first].end_pos ? m_gene_list[g_l_it1->second[0].chrn][g_l_it1->first].end_pos : m_gene_list[g_l_it2->second[0].chrn][g_l_it2->first].end_pos;
-             if (min_end - max_start > 10){
-                 continue;
-             }else{
-                if (m_gene_list[g_l_it1->second[0].chrn][g_l_it1->first].get_ovlp(m_gene_list[g_l_it2->second[0].chrn][g_l_it2->first]) > 10){
-                   std::cout<<"\t gene ovlp"<<m_gene_list[g_l_it1->second[0].chrn][g_l_it1->first]._to_string()<<" "<<m_gene_list[g_l_it2->second[0].chrn][g_l_it2->first]._to_string()<< " ovlp="<<(m_gene_list[g_l_it1->second[0].chrn][g_l_it1->first].get_ovlp(m_gene_list[g_l_it2->second[0].chrn][g_l_it2->first])<<std::endl;
-                }
-             }
-          }*/
-          //std::cout<<" db "<<g_l_it1->second[0].chrn<<":"<<g_l_it1->first<< " " << g_l_it2->second[0].chrn<<":"<<g_l_it2->first << " "<<m_gene_list[g_l_it1->second[0].chrn][g_l_it1->first]->get_ovlp(m_gene_list[g_l_it2->second[0].chrn][g_l_it2->first]) <<std::endl;
-          if (m_gene_list[g_l_it1->second[0].chrn][g_l_it1->first]->get_ovlp(m_gene_list[g_l_it2->second[0].chrn][g_l_it2->first]) > 10){
-             continue;
-          }
-
-          std::string _gene_pair;
-          if (g_l_it1->first>g_l_it2->first){
-             _gene_pair = g_l_it2->first + g_l_it1->first;
-             g_l_it_t1 = g_l_it2; 
-             g_l_it_t2 = g_l_it1;
-          }else if (g_l_it1->first<g_l_it2->first){
-             _gene_pair = g_l_it1->first + g_l_it2->first;
-             g_l_it_t1 = g_l_it1;
-             g_l_it_t2 = g_l_it2;
-          }else{
-             fprintf(stderr, "Warning!!! Two genes are same: %s vs %s\n", g_l_it1->first.c_str(), g_l_it2->first.c_str());
-             continue;
-          }
-          _fg_it = _fg_cand.find(_gene_pair);
-          if (_fg_it==_fg_cand.end()){
-              GeneFusionCand _new_fg;
-              if (g_l_it1->first>g_l_it2->first){
-                  _new_fg.g1 = g_l_it2->first;
-                  _new_fg.g2 = g_l_it1->first;
-              }else{
-                  _new_fg.g1 = g_l_it1->first;
-                  _new_fg.g2 = g_l_it2->first;
-              }
-              _fg_cand[_gene_pair] = _new_fg;
-          }
-         
-          std::map<std::string, std::vector<GenomicMapRegion> >::iterator _q_m_it;
-          // cand*: key------query name
-          _q_m_it = _fg_cand[_gene_pair].cand1.find(multi_map_reads_it->first); 
-          if (_q_m_it==_fg_cand[_gene_pair].cand1.end()){
-             _fg_cand[_gene_pair].cand1[multi_map_reads_it->first] = std::vector<GenomicMapRegion>();
-          }
-          for(std::vector<GenomicMapRegion>::iterator _gp_gmr_it=g_l_it_t1->second.begin(); _gp_gmr_it!=g_l_it_t1->second.end(); _gp_gmr_it++){
-             _fg_cand[_gene_pair].cand1[multi_map_reads_it->first].push_back(*_gp_gmr_it);
-          }
-
-          _q_m_it = _fg_cand[_gene_pair].cand2.find(multi_map_reads_it->first);
-          if (_q_m_it==_fg_cand[_gene_pair].cand2.end()){
-             _fg_cand[_gene_pair].cand2[multi_map_reads_it->first] = std::vector<GenomicMapRegion>();
-          }
-          for(std::vector<GenomicMapRegion>::iterator _gp_gmr_it=g_l_it_t2->second.begin(); _gp_gmr_it!=g_l_it_t2->second.end(); _gp_gmr_it++){
-             _fg_cand[_gene_pair].cand2[multi_map_reads_it->first].push_back(*_gp_gmr_it);
-          }
-      }
-   }
+   }*/
 
    std::cout<<"Finish _fg_cand[_gene_pair="<<_fg_cand.size()<<std::endl;
    fflush(stdout);
@@ -525,9 +536,9 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
                   int64_t min_end = _q_grm_it->qry_end_pos   > _oq_grm_it->qry_end_pos   ? _oq_grm_it->qry_end_pos  : _q_grm_it->qry_end_pos;
                   if (min_end - max_str > 50 || min_end - max_str < -20){ 
                       if (min_end - max_str > 50){
-                         std::cout<<"Too-far ";
-                      }else{
                          std::cout<<"More-ovlp ";
+                      }else{
+                         std::cout<<"Too-far ";
                       }
                       std::cout<<"Read1: "<<(_q_grm_it->map_strand==0?"+":"-")<<_q_grm_it->chrn<<":"<<_q_grm_it->ref_start_pos<<"-"<<_q_grm_it->ref_end_pos<<"/"<<_q_grm_it->qry_name<<":"<<_q_grm_it->qry_start_pos<<"-"<<_q_grm_it->qry_end_pos<<" >>> "<<max_str<<" "<<min_end<<" Read2: "<<(_oq_grm_it->map_strand==0?"+":"-")<<_oq_grm_it->chrn<<":"<<_oq_grm_it->ref_start_pos<<"-"<<_oq_grm_it->ref_end_pos<<"/"<<_oq_grm_it->qry_name<<":"<<_oq_grm_it->qry_start_pos<<"-"<<_oq_grm_it->qry_end_pos<<" >>> "<<min_end-max_str<<std::endl;
                       continue; 
@@ -605,15 +616,15 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
                   }
 
                   if (bk1 < m_gene_list[_q_grm_it->chrn][_fg_it->second.g1]->get_gr_start_pos()-10 || bk1 > m_gene_list[_q_grm_it->chrn][_fg_it->second.g1]->get_gr_end_pos()+10 ) {
-                     if (m_gene_list[_q_grm_it->chrn][_fg_it->second.g1]->get_name().compare("PSMA6")==0 || m_gene_list[_q_grm_it->chrn][_fg_it->second.g1]->get_name().compare("VMP1")==0){
-                        std::cout<<"Test2 "<<m_gene_list[_q_grm_it->chrn][_fg_it->second.g1]->_to_string()<<" >>> "<<bk1<<std::endl;
-                     }
+                     //if (m_gene_list[_q_grm_it->chrn][_fg_it->second.g1]->get_name().compare("PSMA6")==0 || m_gene_list[_q_grm_it->chrn][_fg_it->second.g1]->get_name().compare("VMP1")==0){
+                     //   std::cout<<"Test2 "<<m_gene_list[_q_grm_it->chrn][_fg_it->second.g1]->_to_string()<<" >>> "<<bk1<<std::endl;
+                     //}
                      continue;
                   }
                   if (bk2 < m_gene_list[_oq_grm_it->chrn][_fg_it->second.g2]->get_gr_start_pos()-10 || bk2 > m_gene_list[_oq_grm_it->chrn][_fg_it->second.g2]->get_gr_end_pos()+10 ) {
-                     if (m_gene_list[_oq_grm_it->chrn][_fg_it->second.g2]->get_name().compare("PSMA6")==0 || m_gene_list[_oq_grm_it->chrn][_fg_it->second.g2]->get_name().compare("VMP1")==0){
-                        std::cout<<"Test2 "<<m_gene_list[_oq_grm_it->chrn][_fg_it->second.g2]->_to_string()<<" >>> "<<bk2 <<std::endl;
-                     }
+                     //if (m_gene_list[_oq_grm_it->chrn][_fg_it->second.g2]->get_name().compare("PSMA6")==0 || m_gene_list[_oq_grm_it->chrn][_fg_it->second.g2]->get_name().compare("VMP1")==0){
+                     //   std::cout<<"Test2 "<<m_gene_list[_oq_grm_it->chrn][_fg_it->second.g2]->_to_string()<<" >>> "<<bk2 <<std::endl;
+                     //}
                      continue;
                   }
 
@@ -663,7 +674,7 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
       if (max_sup_1>_min_sup_read-1 && max_sup_2>_min_sup_read-1){
          if (_d_dp_it->second.cand1.size()>_min_sup_read-1 || _d_dp_it->second.cand2.size()>_min_sup_read-1){
             std::ostringstream oss_tostr;
-            std::cout<<"G_F-info\t"<<_gid_to_gn[_fg_it->second.g1]<<":"<<_gid_to_gn[_fg_it->second.g2]<<" "<<max_sup_1<<" "<<max_sup_2<<" supporting reads="<<_d_dp_it->second.cand1.size()<<"/"<<_d_dp_it->second.cand2.size()<<std::endl; 
+            //std::cout<<"G_F-info\t"<<_gid_to_gn[_fg_it->second.g1]<<":"<<_gid_to_gn[_fg_it->second.g2]<<" "<<max_sup_1<<" "<<max_sup_2<<" supporting reads="<<_d_dp_it->second.cand1.size()<<"/"<<_d_dp_it->second.cand2.size()<<std::endl; 
             oss_tostr<<"GF\t"<<_gid_to_gn[_fg_it->second.g1]<<":"<<_gid_to_gn[_fg_it->second.g2]<<" "<<max_sup_1<<" "<<max_sup_2<<" supporting reads="<<_d_dp_it->second.cand1.size()<<"/"<<_d_dp_it->second.cand2.size(); //_com_qry_name.size(); 
             std::vector<int64_t> pos_1, pos_2;
             int64_t pos_1_left=0, pos_1_right=0;
