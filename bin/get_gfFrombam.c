@@ -16,6 +16,8 @@
 #include <unordered_map>
 #include <map>
 #include <vector>
+#include <unordered_set>
+#include <set>
 
 #include <sstream>
 #include <fstream>
@@ -31,7 +33,10 @@
 #include "_com_structs_.h"
 
 //                    multi_map_reads_it->first________second;                                      
-int check_align_ovlp_gene(std::string _qryname, std::vector<GenomicMapRegion>& _this_alignment_list, std::map<std::string, GeneFusionCand>& _fg_cand, std::map<std::string, int64_t>& _gene_in_multi_map,std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> > >&  m_gene_list, const int min_len_ovlp, std::vector< std::map<int64_t, bool> >& _this_ref_map_info, const int output_flag ){
+//inline int check_align_ovlp_gene(std::string _qryname, std::vector<GenomicMapRegion>& _this_alignment_list, std::map<std::string, GeneFusionCand>& _fg_cand, std::map<std::string, int64_t>& _gene_in_multi_map,std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> > >&  m_gene_list, const int min_len_ovlp, std::vector< std::map<int64_t, bool> >& _this_ref_map_info, const int output_flag ){
+//inline int check_align_ovlp_gene(std::string _qryname, std::vector<GenomicMapRegion>& _this_alignment_list, std::map<std::string, GeneFusionCand>& _fg_cand, std::map<std::string, int64_t>& _gene_in_multi_map,std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> > >&  m_gene_list, const int min_len_ovlp, std::vector< std::unordered_map<int64_t, bool> >& _this_ref_map_info, const int output_flag ){
+//inline int check_align_ovlp_gene(std::string _qryname, std::vector<GenomicMapRegion>& _this_alignment_list, std::map<std::string, GeneFusionCand>& _fg_cand, std::map<std::string, int64_t>& _gene_in_multi_map,std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> > >&  m_gene_list, const int min_len_ovlp, std::vector< std::unordered_set<int64_t> >& _this_ref_map_info, const int output_flag ){
+inline int check_align_ovlp_gene(std::string _qryname, std::vector<GenomicMapRegion>& _this_alignment_list, std::map<std::string, GeneFusionCand>& _fg_cand, std::map<std::string, int64_t>& _gene_in_multi_map,std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> > >&  m_gene_list, const int min_len_ovlp, std::vector< std::set<int64_t> >& _this_ref_map_info, const int output_flag ){
    std::map<std::string, GeneFusionCand>::iterator _fg_it;
    std::map<std::string, std::vector<GenomicMapRegion> >::iterator _g_map_it;
 
@@ -44,6 +49,7 @@ int check_align_ovlp_gene(std::string _qryname, std::vector<GenomicMapRegion>& _
    // get all alignment with a gene
    // for each alignment
    int ref_info_i = 0;
+   int64_t _t_code_reg_ovlp, _t_code_ovlp, _t_reg_ovlp;
    for(std::vector<GenomicMapRegion>::iterator _gmr_it=_this_alignment_list.begin(); _gmr_it!=_this_alignment_list.end(); _gmr_it++,ref_info_i++){
       std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> >::iterator > _ovlp_rec;
       std::map<std::string, int64_t > _ovlp_len;
@@ -51,15 +57,18 @@ int check_align_ovlp_gene(std::string _qryname, std::vector<GenomicMapRegion>& _
       for (std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> > >::iterator gl_it=m_gene_list.begin(); gl_it!=m_gene_list.end(); gl_it++){
          if(gl_it->first.compare(_gmr_it->chrn)!=0) { continue; }
          for(std::map<std::string, std::shared_ptr<_gtf_entry_> >::iterator chr_g_it=gl_it->second.begin(); chr_g_it!=gl_it->second.end(); chr_g_it++){
-             //int64_t _t_code_ovlp = chr_g_it->second->get_coding_ovlp(*_gmr_it);
-             int64_t _t_code_ovlp = chr_g_it->second->get_coding_ovlp(_this_ref_map_info.at(ref_info_i), _gmr_it->chrn);
+             _t_reg_ovlp = chr_g_it->second->get_ovlp(*_gmr_it);
+             if (! (_t_reg_ovlp > min_len_ovlp) ){ continue; }
+             _t_code_reg_ovlp = chr_g_it->second->get_coding_ovlp(*_gmr_it);
+             if (! (_t_code_reg_ovlp > min_len_ovlp) ){ continue; }
+             _t_code_ovlp = chr_g_it->second->get_coding_ovlp(_this_ref_map_info.at(ref_info_i), _gmr_it->chrn);
              //if ((chr_g_it->second->get_name().compare("TMPRSS2")==0 || chr_g_it->second->get_name().compare("ERG")==0 || chr_g_it->second->get_name().compare("ABL1")==0 || chr_g_it->second->get_name().compare("BCR")==0) && _t_code_ovlp>10){
              //   std::cout<<"Check "<<_gmr_it->qry_name<<":"<<_gmr_it->qry_start_pos<<"-"<<_gmr_it->qry_end_pos<<" " <<_gmr_it->map_strand<<"/"<<_gmr_it->chrn<<":"<<_gmr_it->ref_start_pos<<"-"<<_gmr_it->ref_end_pos<<" "<<chr_g_it->second->get_ovlp(*_gmr_it)<<"/"<<chr_g_it->second->get_coding_ovlp(*_gmr_it)<<" "<<chr_g_it->second->_to_string()<<std::endl;
              //}
              //if (chr_g_it->second->get_coding_ovlp(*_gmr_it) > min_len_ovlp){
              //   std::cout<<"Check "<<_qryname<<" "<<_gmr_it->qry_name<<":"<<_gmr_it->qry_start_pos<<"-"<<_gmr_it->qry_end_pos<<" " <<_gmr_it->map_strand<<"/"<<_gmr_it->chrn<<":"<<_gmr_it->ref_start_pos<<"-"<<_gmr_it->ref_end_pos<<" "<<chr_g_it->second->get_ovlp(*_gmr_it)<<"/"<<chr_g_it->second->get_coding_ovlp(*_gmr_it)<<"??"<<_t_code_ovlp<<">>"<<_this_ref_map_info.at(ref_info_i).size()<<" "<<chr_g_it->second->_to_string()<<std::endl;
              //}
-             if (chr_g_it->second->get_ovlp(*_gmr_it) > min_len_ovlp && _t_code_ovlp> min_len_ovlp){ //chr_g_it->second->get_coding_ovlp(*_gmr_it) > min_len_ovlp){
+             if (_t_code_ovlp> min_len_ovlp){ //chr_g_it->second->get_coding_ovlp(*_gmr_it) > min_len_ovlp){
                  if (_ovlp_rec.find(chr_g_it->first)==_ovlp_rec.end()){
                     _ovlp_rec[chr_g_it->first] = chr_g_it;
                     _ovlp_len[chr_g_it->first] = _t_code_ovlp; //chr_g_it->second->get_coding_ovlp(*_gmr_it);
@@ -162,6 +171,295 @@ int check_align_ovlp_gene(std::string _qryname, std::vector<GenomicMapRegion>& _
    return 1;
 }
 
+std::unordered_map<std::string, std::vector<GenomicMapRegion> >  get_multiple_mapped_reads(const char* in_bam_file, const int64_t _min_map_len, const int _used_secondary_alignment, const int output_flag){
+//std::map<std::string, std::vector<GenomicMapRegion> >  get_multiple_mapped_reads(const char* in_bam_file, const int64_t _min_map_len, const int _used_secondary_alignment, const int output_flag){
+   samFile * in_bam = NULL;
+   bam_hdr_t * hdr;
+   bam1_t * bam_one_alignment;
+   bam1_core_t * bam_alignment_info;
+   int sam_ret;
+
+   uint32_t* m_cigar;
+   int m_i_cigar;
+   int m_op;
+   int m_len;
+
+   int32_t ref_alg_pos;
+   int32_t qry_alg_pos;
+   int64_t num_del = 0;
+   int64_t num_ins = 0;
+   int64_t num_del_this = 0;
+   int64_t num_ins_this = 0;
+   int64_t num_mat_this = 0;
+
+   uint64_t mapped_bases = 0;
+   std::unordered_map<std::string, uint64_t> read_len_map;
+   std::unordered_map<std::string, uint64_t> read_len_all;
+   std::unordered_map<std::string, uint64_t>::iterator rl_map_it;
+   std::list<uint32_t> read_len_list;
+   std::list<uint32_t> read_len_map_list;
+   std::list<uint32_t>::reverse_iterator rit;
+
+   std::unordered_map<std::string, std::vector<GenomicMapRegion> > multi_map_reads;
+   std::unordered_map<std::string, std::vector<GenomicMapRegion> >::iterator multi_map_reads_it;
+   //std::map<std::string, std::vector<GenomicMapRegion> > multi_map_reads;
+   //std::map<std::string, std::vector<GenomicMapRegion> >::iterator multi_map_reads_it; 
+
+   fprintf(stdout, "Open sam file (%s).\n", in_bam_file);
+   bam_one_alignment = bam_init1();
+   bam_alignment_info = &bam_one_alignment->core;
+
+   in_bam = sam_open(in_bam_file, "rb");
+   if (NULL == in_bam){
+      fprintf(stderr, "Error! Cannot open sam file (%s).\n", in_bam_file);
+      abort();
+   }
+
+   hdr = sam_hdr_read(in_bam);
+   std::string _this_q_name("");
+   //std::map<uint64_t, bool> _this_map_info;
+
+   int64_t num_of_mult_map_qry = 0;
+   std::set<uint64_t> _this_map_info;
+
+   std::string m_qname;
+   fprintf(stdout, "Read sam file (%s) for scanning multiple-mapped reads. \n", in_bam_file);
+   fflush(stdout);
+   clock_t _start_time = clock();
+   int64_t _bam_i = 0;
+   while (sam_ret = sam_read1(in_bam, hdr, bam_one_alignment)>=0){
+         if (_bam_i%2000000==0){
+            std::cout<<"Handle ="<<_bam_i<<" >> multi_map_reads.size="<<multi_map_reads.size()<<" read_len_map.size="<<read_len_map.size()<< " Time-elapsed="<<int(double(std::clock()-_start_time)*100/CLOCKS_PER_SEC)/100.00<<std::endl;
+         }
+         _bam_i += 1;
+
+        m_qname = bam_get_qname(bam_one_alignment);
+        rl_map_it = read_len_all.find(m_qname);
+        if (rl_map_it==read_len_all.end() || rl_map_it->second < bam_one_alignment->core.l_qseq){
+            read_len_all[m_qname] = bam_one_alignment->core.l_qseq;
+        }
+
+        if (bam_alignment_info->flag & BAM_FUNMAP) { continue; }
+        if (_used_secondary_alignment==0 && (bam_alignment_info->flag & BAM_FSECONDARY)) { continue; }
+
+        rl_map_it = read_len_map.find(m_qname);
+        if (rl_map_it==read_len_map.end() || rl_map_it->second < bam_one_alignment->core.l_qseq){
+            read_len_map[m_qname] = bam_one_alignment->core.l_qseq;
+        }
+
+        if (_this_q_name.size()>0 && _this_q_name.compare(m_qname)!=0){
+            num_del += num_del_this;
+            num_ins += num_ins_this;
+            num_del_this = 0;
+            num_ins_this = 0;
+
+            if (multi_map_reads[_this_q_name].size()<2){
+               multi_map_reads.erase(_this_q_name);
+            }else{
+               num_of_mult_map_qry += 1;
+            }
+            if (output_flag & 32){
+               if (read_len_map[_this_q_name] < _this_map_info.size()){
+                  fprintf(stderr, "Warning!! Mapped bases(%d) is more than total bases(%d) for %s.\n", read_len_map[_this_q_name], _this_map_info.size(), _this_q_name.c_str());
+               }
+               mapped_bases += _this_map_info.size();
+               _this_map_info.clear();
+            }else{
+               mapped_bases += num_mat_this;
+               num_mat_this = 0;
+            }
+        }
+        _this_q_name = std::string(m_qname);
+
+        multi_map_reads_it = multi_map_reads.find(m_qname);
+        if (multi_map_reads_it==multi_map_reads.end()){
+           multi_map_reads[m_qname] = std::vector<GenomicMapRegion>();
+        }
+       
+        ref_alg_pos = bam_alignment_info->pos;
+        qry_alg_pos = 0;
+        GenomicMapRegion _this_gmr;
+        _this_gmr.chrn = hdr->target_name[bam_alignment_info->tid];
+        _this_gmr.ref_start_pos = bam_alignment_info->pos;
+        _this_gmr.qry_start_pos = 0;
+        bool is_first_match = true;
+        _this_gmr.ref_end_pos = 0;
+        _this_gmr.qry_end_pos = 0;
+        _this_gmr.qry_name = m_qname;
+        if (bam_is_rev(bam_one_alignment) ) { _this_gmr.map_strand =1 ;}
+        else { _this_gmr.map_strand = 0; }
+
+        int64_t _this_read_len = 0;
+        m_cigar = bam_get_cigar(bam_one_alignment);
+
+        for (m_i_cigar=0; m_i_cigar<bam_alignment_info->n_cigar; ++m_i_cigar){
+           m_op = bam_cigar_op(m_cigar[m_i_cigar]);
+           m_len = bam_cigar_oplen(m_cigar[m_i_cigar]);
+           if (!(m_op==BAM_CDEL || m_op==BAM_CREF_SKIP || m_op==BAM_CPAD || m_op==BAM_CBACK)){
+              _this_read_len += m_len;
+           }
+           switch (m_op){
+              case BAM_CEQUAL:
+              case BAM_CMATCH: // M
+                   if (is_first_match){
+                      _this_gmr.qry_start_pos = qry_alg_pos;
+                      is_first_match = false;
+                   }
+                   if (output_flag & 32){
+                      for (int ai=0; ai<m_len; ai++){_this_map_info.insert(qry_alg_pos+ai); }
+                   }
+                   ref_alg_pos += m_len;
+                   qry_alg_pos += m_len;
+                   num_mat_this += m_len;
+                   _this_gmr.ref_end_pos = ref_alg_pos;
+                   _this_gmr.qry_end_pos = qry_alg_pos;
+                   break;
+              case BAM_CINS:  // I
+                   num_ins_this += m_len;
+                   qry_alg_pos += m_len;
+                   break;
+              case BAM_CDEL:   // D
+                   num_del_this += m_len;
+                   ref_alg_pos += m_len;
+                   break;
+              case BAM_CREF_SKIP:   //
+                   ref_alg_pos += m_len;
+                   break;
+              case BAM_CSOFT_CLIP:  //
+                   qry_alg_pos += m_len;
+                   break;
+              case BAM_CHARD_CLIP:  //
+                   qry_alg_pos += m_len;
+                   break;
+              case BAM_CPAD:  //
+                   break;
+              case BAM_CDIFF: //
+                   if (is_first_match){
+                      _this_gmr.qry_start_pos = qry_alg_pos;
+                      is_first_match = false;
+                   }
+                   if (output_flag & 32){
+                      for (int ai=0; ai<m_len; ai++){_this_map_info.insert(qry_alg_pos+ai); }
+                   }
+                   ref_alg_pos += m_len;
+                   qry_alg_pos += m_len;
+                   num_mat_this += m_len;
+                   _this_gmr.ref_end_pos = ref_alg_pos;
+                   _this_gmr.qry_end_pos = qry_alg_pos;
+                   break;
+              default:
+                   fprintf(stderr, "Unknow cigar %d:%d\n", m_op, m_len);
+           }
+        }
+        _this_gmr.ref_end_pos -= 1;
+        _this_gmr.qry_end_pos -= 1;
+        if (_this_gmr.map_strand == 1){
+           int64_t _rd_ind = _this_read_len - _this_gmr.qry_start_pos -1;
+           _this_gmr.qry_start_pos = _this_read_len - _this_gmr.qry_end_pos -1;
+           _this_gmr.qry_end_pos = _rd_ind;
+        }
+        if (_min_map_len<_this_gmr.qry_end_pos-_this_gmr.qry_start_pos){
+           multi_map_reads[m_qname].push_back(_this_gmr);
+        }
+   }
+   fprintf(stdout, "Time consumed to read bam: %.2fs\n", (double)(clock() - _start_time)/CLOCKS_PER_SEC);
+
+   if (_this_q_name.size()>0 && _this_q_name.compare(m_qname)!=0){
+      num_del += num_del_this;
+      num_ins += num_ins_this;
+      num_del_this = 0;
+      num_ins_this = 0;
+
+      if (multi_map_reads[_this_q_name].size()<2){
+          multi_map_reads.erase(_this_q_name);
+      }else{
+          num_of_mult_map_qry += 1;
+      }
+
+      if (output_flag & 32){
+         if (read_len_map[_this_q_name] < _this_map_info.size()){
+            fprintf(stderr, "Warning!! Mapped bases(%d) is more than total bases(%d) for %s.\n", read_len_map[_this_q_name], _this_map_info.size(), _this_q_name.c_str());
+         }
+         mapped_bases += _this_map_info.size();
+         _this_map_info.clear();
+      }else{
+         mapped_bases += num_mat_this;
+         num_mat_this = 0;
+      }
+   }
+   _this_q_name = std::string(m_qname);
+
+   bam_destroy1(bam_one_alignment);
+   bam_hdr_destroy(hdr);
+   sam_close(in_bam);
+
+   uint64_t tot_all_bases = 0;
+   uint64_t tot_map_bases = 0;
+   read_len_map_list.clear();
+   read_len_list.clear();
+   for (rl_map_it=read_len_map.begin(); rl_map_it!=read_len_map.end(); rl_map_it++){
+       read_len_map_list.push_back(rl_map_it->second);
+       tot_map_bases += rl_map_it->second;
+   }
+   for (rl_map_it=read_len_all.begin(); rl_map_it!=read_len_all.end(); rl_map_it++){
+       read_len_list.push_back(rl_map_it->second);
+       tot_all_bases += rl_map_it->second;
+   }
+
+   uint64_t total_reads = read_len_all.size();
+   uint64_t maped_reads = read_len_map.size();
+
+   read_len_map_list.sort();
+   read_len_list.sort();
+
+   std::map<uint64_t, uint64_t> _all_np;
+   std::map<uint64_t, uint64_t> _map_np;
+   for(int _np=10; _np<100; _np+=10){
+      _all_np[_np] = 0;
+      _map_np[_np] = 0;
+   }
+
+   uint64_t csize = 0;
+   for (rit=read_len_map_list.rbegin(); rit!=read_len_map_list.rend(); ++rit){
+      csize += *rit;
+      for(int _np=10; _np<100; _np+=10){
+         if (_map_np[_np]==0 && ((double(csize)/tot_map_bases)>=_np/float(100))){
+            _map_np[_np] = *rit;
+         }
+      }
+   }
+
+   csize = 0;
+   for (rit=read_len_list.rbegin(); rit!=read_len_list.rend(); ++rit){
+      csize += *rit;
+      for(int _np=10; _np<100; _np+=10){
+         if (_all_np[_np]==0 && ((double(csize)/tot_all_bases)>=_np/float(100))){
+            _all_np[_np] = *rit;
+         }
+      }
+   }
+
+   fprintf(stdout, "For all reads: reads=%llu/%llu(%.2f) bases=%llu/%llu(%.2f) ins=%llu(%.2f) del=%llu(%.2f)\n",
+                   read_len_map_list.size(),read_len_list.size(),((double)(read_len_map_list.size())/read_len_list.size())*100,
+                   mapped_bases,tot_all_bases,((double)mapped_bases/tot_all_bases)*100,
+                   num_ins,(double)num_ins*100/tot_all_bases, num_del,(double)num_del*100/tot_all_bases );
+   for(int _np=10; _np<100; _np+=10){
+       fprintf(stdout, "\t N%d: %d\n", _np, _all_np[_np]);
+   }
+
+   fprintf(stdout, "For mapped reads: bases=%llu/%llu(%.2f) ins=%llu(%.2f) del=%llu(%.2f)\n",
+                   mapped_bases,tot_map_bases,((double)mapped_bases/tot_map_bases)*100,
+                   num_ins,(double)num_ins*100/tot_map_bases, num_del,(double)num_del*100/tot_map_bases );
+   for(int _np=10; _np<100; _np+=10){
+       fprintf(stdout, "\t N%d: %d\n", _np, _map_np[_np]);
+   }
+   fprintf(stdout, "\n");
+
+   fprintf(stdout, "# reads with multipe mapping = %llu=%llu/%llu(%.2f)\n", num_of_mult_map_qry, multi_map_reads.size(), read_len_list.size(), ((double)(multi_map_reads.size())/read_len_list.size())*100);
+
+   return multi_map_reads;
+}
+
 int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const int min_len_ovlp, const int64_t _bin_size, const int _used_pseudogene, const int64_t _min_map_len, const int _used_secondary_alignment, const int _min_sup_read, const int output_flag){
    std::map<std::string, std::map<std::string, std::shared_ptr<_gtf_entry_> > > m_gene_list; 
    std::map<std::string, std::string> _gid_to_gn;
@@ -180,6 +478,10 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
    }   
    int retv = read_gtf(m_gene_list, _gid_to_gn, in_gtf_file, gt_list, gt_size);
 
+   std::unordered_map<std::string, std::vector<GenomicMapRegion> > multi_map_reads = get_multiple_mapped_reads(in_bam_file, _min_map_len, _used_secondary_alignment, output_flag);
+   //std::map<std::string, std::vector<GenomicMapRegion> > multi_map_reads = get_multiple_mapped_reads(in_bam_file, _min_map_len, _used_secondary_alignment, output_flag);
+   std::unordered_map<std::string, std::vector<GenomicMapRegion> >::iterator multi_map_reads_it;   
+
    samFile * in_bam = NULL;
    bam_hdr_t * hdr;
    bam1_t * bam_one_alignment;
@@ -193,22 +495,8 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
 
    int32_t ref_alg_pos;
    int32_t qry_alg_pos;
-   int64_t num_del = 0;
-   int64_t num_ins = 0;
-   int64_t num_del_this = 0;
-   int64_t num_ins_this = 0;
-
-   uint64_t mapped_bases = 0;
-   std::unordered_map<std::string, uint64_t> read_len_map;
-   std::unordered_map<std::string, uint64_t> read_len_all;
-   std::unordered_map<std::string, uint64_t>::iterator rl_map_it;
-   std::list<uint32_t> read_len_list;
-   std::list<uint32_t> read_len_map_list;
-   std::list<uint32_t>::reverse_iterator rit;
 
    // key: query name; 
-   std::unordered_map<std::string, std::vector<GenomicMapRegion> > multi_map_reads;
-   std::unordered_map<std::string, std::vector<GenomicMapRegion> >::iterator multi_map_reads_it;
    std::map<std::string, GeneFusionCand> _fg_cand;
    std::map<std::string, GeneFusionCand>::iterator _fg_it;
    std::map<std::string, int64_t> _gene_in_multi_map;
@@ -225,65 +513,57 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
 
    hdr = sam_hdr_read(in_bam);
    std::string _this_q_name("");
-   std::map<uint64_t, bool> _this_map_info;
-   std::map< std::string, std::vector< std::map<int64_t, bool> > > _this_ref_map_info;
+
+   //std::unordered_map<int64_t, bool> _this_ref_map;
+   //std::unordered_set<int64_t> _this_ref_map;
+
+   //std::map< std::string, std::vector< std::map<int64_t, bool> > > _this_ref_map_info;
+   //std::unordered_map< std::string, std::vector< std::unordered_map<int64_t, bool> > > _this_ref_map_info;
+   //std::map< std::string, std::vector< std::unordered_set<int64_t> > > _this_ref_map_info;
+   std::map< std::string, std::vector< std::set<int64_t> > > _this_ref_map_info;
+   std::map< std::string, std::vector< std::set<int64_t> > >::iterator _this_ref_map_info_it;
 
    int64_t num_of_mult_map_qry = 0;
    
    std::string m_qname;
-   fprintf(stdout, "Read sam file (%s).\n", in_bam_file);
+   fprintf(stdout, "Read sam file (%s) for gene fusion detection.\n", in_bam_file);
    fflush(stdout);
    clock_t _start_time = clock();
+   int64_t _bam_i = 0;
    while (sam_ret = sam_read1(in_bam, hdr, bam_one_alignment)>=0){
+         if (_bam_i%1000000==0){
+            std::cout<<"Handle ="<<_bam_i<< " _fg_cand.size()=" << _fg_cand.size() <<" Time-elapsed="<<int(double(std::clock()-_start_time)*100/CLOCKS_PER_SEC)/100.00<<std::endl;
+         }
+         _bam_i += 1;
+
         m_qname = bam_get_qname(bam_one_alignment);
-        //fprintf(stdout, "For read (%s).\n", m_qname.c_str());
-        rl_map_it = read_len_all.find(m_qname);
-        if (rl_map_it==read_len_all.end() || rl_map_it->second < bam_one_alignment->core.l_qseq){
-            read_len_all[m_qname] = bam_one_alignment->core.l_qseq;
-        } 
+        if (multi_map_reads.find(m_qname) == multi_map_reads.end()){
+           continue;
+        }
 
         if (bam_alignment_info->flag & BAM_FUNMAP) { continue; }
         if (_used_secondary_alignment==0 && (bam_alignment_info->flag & BAM_FSECONDARY)) { continue; }
-        //if (_used_secondary_alignment==0 && (bam_alignment_info->flag & BAM_FSUPPLEMENTARY)) { continue; }
 
-        rl_map_it = read_len_map.find(m_qname);
-        if (rl_map_it==read_len_map.end() || rl_map_it->second < bam_one_alignment->core.l_qseq){
-            read_len_map[m_qname] = bam_one_alignment->core.l_qseq;
-        }
-
-        std::map<int64_t, bool> _this_ref_map;
+        //std::map<int64_t, bool> _this_ref_map;
+        //std::unordered_map<int64_t, bool> _this_ref_map;
+        //_this_ref_map.clear();
+        std::set<int64_t> _this_ref_map;
 
         //fprintf(stdout, "For read check (%s).\n", m_qname.c_str());
         if (_this_q_name.size()>0 && _this_q_name.compare(m_qname)!=0){
-            num_del += num_del_this;
-            num_ins += num_ins_this; 
-            num_del_this = 0;
-            num_ins_this = 0;
-  
-            if (multi_map_reads[_this_q_name].size()<2){
-               multi_map_reads.erase(_this_q_name);
-               _this_ref_map_info.erase(_this_q_name); 
-            }else{
-               num_of_mult_map_qry += 1;
-               if (output_flag & 16){
-                  check_align_ovlp_gene(_this_q_name, multi_map_reads[_this_q_name], _fg_cand, _gene_in_multi_map, m_gene_list,  min_len_ovlp, _this_ref_map_info[_this_q_name], output_flag ); 
-                  _this_ref_map_info.erase(_this_q_name);
-               }
+            num_of_mult_map_qry += 1;
+            if (!(output_flag & 16)){
+               check_align_ovlp_gene(_this_q_name, multi_map_reads[_this_q_name], _fg_cand, _gene_in_multi_map, m_gene_list,  min_len_ovlp, _this_ref_map_info[_this_q_name], output_flag ); 
+               _this_ref_map_info.erase(_this_q_name);
             }
- 
-            if (read_len_map[_this_q_name] < _this_map_info.size()){
-                fprintf(stderr, "Warning!! Mapped bases(%d) is more than total bases(%d) for %s.\n", read_len_map[_this_q_name], _this_map_info.size(), _this_q_name.c_str());
-            }
-            mapped_bases += _this_map_info.size();
-            _this_map_info.clear();
-            //_this_ref_map_info.clear();
         }
         _this_q_name = std::string(m_qname);
         
-        multi_map_reads_it = multi_map_reads.find(m_qname);
-        if (multi_map_reads_it==multi_map_reads.end()){
-           multi_map_reads[m_qname] = std::vector<GenomicMapRegion>();
-           _this_ref_map_info[m_qname] = std::vector< std::map<int64_t, bool> >();
+        _this_ref_map_info_it = _this_ref_map_info.find(m_qname);
+        if (_this_ref_map_info_it==_this_ref_map_info.end()){
+           // _this_ref_map_info[m_qname] = std::vector< std::unordered_map<int64_t, bool> >();
+           //_this_ref_map_info[m_qname] = std::vector< std::unordered_set<int64_t> >();
+           _this_ref_map_info[m_qname] = std::vector< std::set<int64_t> >();
         }
 
         //fprintf(stdout, "For read pos (%s).\n", m_qname.c_str());
@@ -302,13 +582,9 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
 
         int64_t _this_read_len = 0;
         m_cigar = bam_get_cigar(bam_one_alignment);
-        //fprintf(stdout, "For read pos_end (%s).\n", m_qname.c_str());
         for (m_i_cigar=0; m_i_cigar<bam_alignment_info->n_cigar; ++m_i_cigar){
-           //fprintf(stdout, "For read cigar (%s).\n", m_qname.c_str());
            m_op = bam_cigar_op(m_cigar[m_i_cigar]);
-           //fprintf(stdout, "For read cigar_len (%s).\n", m_qname.c_str());
            m_len = bam_cigar_oplen(m_cigar[m_i_cigar]);
-           //fprintf(stdout, "\t%c%d\n", m_op, m_len);
            if (!(m_op==BAM_CDEL || m_op==BAM_CREF_SKIP || m_op==BAM_CPAD || m_op==BAM_CBACK)){
               _this_read_len += m_len;
            }
@@ -317,8 +593,8 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
               case BAM_CMATCH: // M
                    //fprintf(stdout, "%s%d", "M", m_len);
                    for (int ai=0; ai<m_len; ai++){
-                      _this_map_info[qry_alg_pos+ai] = true;
-                      _this_ref_map[ref_alg_pos+ai] = true;
+                      //_this_ref_map[ref_alg_pos+ai] = true;
+                      _this_ref_map.insert(ref_alg_pos+ai);
                    }
                    if (is_first_match){
                       _this_gmr.qry_start_pos = qry_alg_pos;
@@ -331,18 +607,10 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
                    break;
               case BAM_CINS:  // I
                    //fprintf(stdout, "%s%d", "I", m_len);
-                   num_ins_this += m_len;
-                   /*for (int ai=0; ai<m_len; ai++){
-                      _this_map_info[qry_alg_pos+ai] = true;
-                   }*/
                    qry_alg_pos += m_len;
                    break;
               case BAM_CDEL:   // D
                    //fprintf(stdout, "%s%d", "D", m_len);
-                   /*for (int ai=0; ai<m_len; ai++){
-                      _this_map_info[ref_alg_pos+ai] = true;
-                   }*/
-                   num_del_this += m_len;
                    ref_alg_pos += m_len;
                    break;
               case BAM_CREF_SKIP:   // 
@@ -365,8 +633,8 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
               case BAM_CDIFF: //
                    //fprintf(stdout, "%s%d", "X", m_len);
                    for (int ai=0; ai<m_len; ai++){
-                      _this_map_info[qry_alg_pos+ai] = true;
-                      _this_ref_map[ref_alg_pos+ai] = true;
+                      //_this_ref_map[ref_alg_pos+ai] = true;
+                      _this_ref_map.insert(ref_alg_pos+ai);
                    }
                    if (is_first_match){
                       _this_gmr.qry_start_pos = qry_alg_pos;
@@ -389,108 +657,24 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
            _this_gmr.qry_start_pos = _this_read_len - _this_gmr.qry_end_pos -1;
            _this_gmr.qry_end_pos = _rd_ind;
         }
-        //if (_this_gmr.qry_name.compare("35e82b56-9386-4144-94a3-15e560f45f40")==0 || _this_gmr.qry_name.compare("90bf2a20-9476-4c26-9a86-bb69bfa6a980")==0 || _this_gmr.qry_name.compare("a61c8185-46f7-4d00-8c1a-69a1b3b6efdb")==0 ){
-        //   std::cout<<" Test "<<_this_gmr.qry_name<<":"<<_this_gmr.qry_start_pos<<"-"<<_this_gmr.qry_end_pos<<" " <<_this_gmr.map_strand<<"/"<<_this_gmr.chrn<<":"<<_this_gmr.ref_start_pos<<"-"<<_this_gmr.ref_end_pos<<std::endl;
-        //}
 
         if (_min_map_len<_this_gmr.qry_end_pos-_this_gmr.qry_start_pos){
-           multi_map_reads[m_qname].push_back(_this_gmr);
            _this_ref_map_info[m_qname].push_back(_this_ref_map);
         }
    }
    fprintf(stdout, "Time consumed to read bam: %.2fs\n", (double)(clock() - _start_time)/CLOCKS_PER_SEC);
 
    if (_this_q_name.size()>0 && _this_q_name.compare(m_qname)!=0){
-      num_del += num_del_this;
-      num_ins += num_ins_this;
-      num_del_this = 0;
-      num_ins_this = 0;
-
-      if (multi_map_reads[_this_q_name].size()<2){
-          multi_map_reads.erase(_this_q_name);
-          _this_ref_map_info.erase(_this_q_name);
-      }else{
-          num_of_mult_map_qry += 1;
-          if (output_flag & 16){
-             check_align_ovlp_gene(_this_q_name, multi_map_reads[_this_q_name], _fg_cand, _gene_in_multi_map, m_gene_list,  min_len_ovlp, _this_ref_map_info[_this_q_name], output_flag  );
-             _this_ref_map_info.erase(_this_q_name);
-          }
+      num_of_mult_map_qry += 1;
+      if (!(output_flag & 16)){
+         check_align_ovlp_gene(_this_q_name, multi_map_reads[_this_q_name], _fg_cand, _gene_in_multi_map, m_gene_list,  min_len_ovlp, _this_ref_map_info[_this_q_name], output_flag  );
+         _this_ref_map_info.erase(_this_q_name);
       }
-
-      if (read_len_map[_this_q_name] < _this_map_info.size()){
-          fprintf(stderr, "Warning!! Mapped bases(%d) is more than total bases(%d) for %s.\n", read_len_map[_this_q_name], _this_map_info.size(), _this_q_name.c_str());
-      }
-      mapped_bases += _this_map_info.size();
-      _this_map_info.clear();
-      //_this_ref_map_info.clear();
    }
    _this_q_name = std::string(m_qname);
 
-   uint64_t tot_all_bases = 0;
-   uint64_t tot_map_bases = 0;
-   read_len_map_list.clear();
-   read_len_list.clear();
-   for (rl_map_it=read_len_map.begin(); rl_map_it!=read_len_map.end(); rl_map_it++){
-       read_len_map_list.push_back(rl_map_it->second);
-       tot_map_bases += rl_map_it->second;
-   }
-   for (rl_map_it=read_len_all.begin(); rl_map_it!=read_len_all.end(); rl_map_it++){
-       read_len_list.push_back(rl_map_it->second);
-       tot_all_bases += rl_map_it->second;
-   }
-
-   uint64_t total_reads = read_len_all.size();
-   uint64_t maped_reads = read_len_map.size();   
-
-   read_len_map_list.sort();
-   read_len_list.sort();  
-
-   std::map<uint64_t, uint64_t> _all_np;
-   std::map<uint64_t, uint64_t> _map_np;
-   for(int _np=10; _np<100; _np+=10){
-      _all_np[_np] = 0;
-      _map_np[_np] = 0;
-   }
-
-   uint64_t csize = 0; 
-   for (rit=read_len_map_list.rbegin(); rit!=read_len_map_list.rend(); ++rit){
-      csize += *rit;
-      for(int _np=10; _np<100; _np+=10){
-         if (_map_np[_np]==0 && ((double(csize)/tot_map_bases)>=_np/float(100))){
-            _map_np[_np] = *rit;
-         }
-      }
-   }
-
-   csize = 0;
-   for (rit=read_len_list.rbegin(); rit!=read_len_list.rend(); ++rit){
-      csize += *rit;
-      for(int _np=10; _np<100; _np+=10){
-         if (_all_np[_np]==0 && ((double(csize)/tot_all_bases)>=_np/float(100))){
-            _all_np[_np] = *rit;
-         }
-      }
-   }
-
-   fprintf(stdout, "For all reads: reads=%llu/%llu(%.2f) bases=%llu/%llu(%.2f) ins=%llu(%.2f) del=%llu(%.2f)\n", 
-                   read_len_map_list.size(),read_len_list.size(),((double)(read_len_map_list.size())/read_len_list.size())*100,
-                   mapped_bases,tot_all_bases,((double)mapped_bases/tot_all_bases)*100,
-                   num_ins,(double)num_ins*100/tot_all_bases, num_del,(double)num_del*100/tot_all_bases );
-   for(int _np=10; _np<100; _np+=10){
-       fprintf(stdout, "\t N%d: %d\n", _np, _all_np[_np]);
-   }
-   fprintf(stdout, "For mapped reads: bases=%llu/%llu(%.2f) ins=%llu(%.2f) del=%llu(%.2f)\n", 
-                   mapped_bases,tot_map_bases,((double)mapped_bases/tot_map_bases)*100,
-                   num_ins,(double)num_ins*100/tot_map_bases, num_del,(double)num_del*100/tot_map_bases );
-   for(int _np=10; _np<100; _np+=10){
-       fprintf(stdout, "\t N%d: %d\n", _np, _map_np[_np]);
-   }
-   fprintf(stdout, "\n");
-
    // for gene fusion
-   fprintf(stdout, "# reads with multipe mapping = %llu=%llu/%llu(%.2f)\n", num_of_mult_map_qry, multi_map_reads.size(), read_len_list.size(), ((double)(multi_map_reads.size())/read_len_list.size())*100);
-   fflush(stdout);
-   if (! (output_flag & 16) ){
+   if ( (output_flag & 16) ){
       int64_t _h_i = 0;
       clock_t _start_t = std::clock();
       for (multi_map_reads_it=multi_map_reads.begin(); multi_map_reads_it!=multi_map_reads.end(); multi_map_reads_it++){

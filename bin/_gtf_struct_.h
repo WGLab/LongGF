@@ -6,6 +6,10 @@
 #include <iostream>
 #include <memory>
 
+#include <unordered_map>
+#include <unordered_set>
+#include <set>
+
 #include "_com_structs_.h"
 
 //enum _gtf_entry_type_ {"gene","transcript","exon","CDS","UTR","start_codon","stop_codon","Selenocysteine"};
@@ -21,7 +25,9 @@ protected:
 
    GenomicRegion _this_gr;
 
-   std::map<int64_t, bool>::iterator _check_pos_it;
+   //std::unordered_map<int64_t, bool>::iterator _check_pos_it;
+   //std::unordered_set<int64_t>::iterator _check_pos_it;
+   std::set<int64_t>::iterator _check_pos_it;
 
 public:
    std::vector< std::shared_ptr<_gtf_entry_> > _sub_list;
@@ -46,8 +52,11 @@ public:
 
    virtual int64_t get_coding_length(){ return 100;}
    virtual int64_t get_coding_ovlp(GenomicMapRegion & _gmr_){return 100;}
-   virtual int64_t get_coding_ovlp(std::map<int64_t, bool>& _this_map_info, std::string _t_chrn){return 100;}
-   
+   //virtual int64_t get_coding_ovlp(std::map<int64_t, bool>& _this_map_info, std::string _t_chrn){return 100;}
+   //virtual int64_t get_coding_ovlp(std::unordered_map<int64_t, bool>& _this_map_info, std::string _t_chrn){return 100;}  
+   //virtual int64_t get_coding_ovlp(std::unordered_set<int64_t>& _this_map_info, std::string _t_chrn){return 100;}
+   virtual int64_t get_coding_ovlp(std::set<int64_t>& _this_map_info, std::string _t_chrn){return 100;}
+
    _gtf_entry_() { _coding_length = -1; _this_gr.start_pos=0; _this_gr.end_pos=0; } 
    _gtf_entry_(std::string _t_type, std::string _p_n, std::string _p_t, std::string _p_id, GenomicRegion _p_gr);
    _gtf_entry_(std::string _t_type, std::string _p_id) { _this_type = _t_type; set_id(_p_id); _coding_length = -1; _this_gr.start_pos=0; _this_gr.end_pos=0; }
@@ -60,7 +69,10 @@ class _gene_entry_ : public _gtf_entry_ {
 public:
    int64_t get_coding_length();
    int64_t get_coding_ovlp(GenomicMapRegion & _gmr_);
-   int64_t get_coding_ovlp(std::map<int64_t, bool>& _this_map_info, std::string _t_chrn);
+   //int64_t get_coding_ovlp(std::map<int64_t, bool>& _this_map_info, std::string _t_chrn);
+   //int64_t get_coding_ovlp(std::unordered_map<int64_t, bool>& _this_map_info, std::string _t_chrn);
+   //int64_t get_coding_ovlp(std::unordered_set<int64_t>& _this_map_info, std::string _t_chrn);
+   int64_t get_coding_ovlp(std::set<int64_t>& _this_map_info, std::string _t_chrn);
 
    _gene_entry_(std::string _t_type, std::string _p_n, std::string _p_t, std::string _p_id, GenomicRegion _p_gr):_gtf_entry_(_t_type,_p_n,_p_t,_p_id,_p_gr){;}
    _gene_entry_(std::string _t_type, std::string _p_id):_gtf_entry_(_t_type,_p_id){ _coding_length = -1;}
@@ -71,7 +83,10 @@ class _transcript_entry_ : public _gtf_entry_ {
 public:
    int64_t get_coding_length();
    int64_t get_coding_ovlp(GenomicMapRegion & _gmr_);
-   int64_t get_coding_ovlp(std::map<int64_t, bool>& _this_map_info, std::string _t_chrn);
+   //int64_t get_coding_ovlp(std::map<int64_t, bool>& _this_map_info, std::string _t_chrn);
+   //int64_t get_coding_ovlp(std::unordered_map<int64_t, bool>& _this_map_info, std::string _t_chrn);
+   //int64_t get_coding_ovlp(std::unordered_set<int64_t>& _this_map_info, std::string _t_chrn);
+   int64_t get_coding_ovlp(std::set<int64_t>& _this_map_info, std::string _t_chrn);
 
    _transcript_entry_(std::string _t_type, std::string _p_n, std::string _p_t, std::string _p_id, GenomicRegion _p_gr):_gtf_entry_(_t_type,_p_n,_p_t,_p_id,_p_gr){;}
    _transcript_entry_(std::string _t_type, std::string _p_id):_gtf_entry_(_t_type,_p_id){ _coding_length = -1;}
@@ -81,7 +96,10 @@ class _exon_entry_ : public _gtf_entry_ {
 public:
    int64_t get_coding_length();
    int64_t get_coding_ovlp(GenomicMapRegion & _gmr_);
-   int64_t get_coding_ovlp(std::map<int64_t, bool>& _this_map_info, std::string _t_chrn);
+   //int64_t get_coding_ovlp(std::map<int64_t, bool>& _this_map_info, std::string _t_chrn);
+   //int64_t get_coding_ovlp(std::unordered_map<int64_t, bool>& _this_map_info, std::string _t_chrn);
+   //int64_t get_coding_ovlp(std::unordered_set<int64_t>& _this_map_info, std::string _t_chrn);
+   int64_t get_coding_ovlp(std::set<int64_t>& _this_map_info, std::string _t_chrn);
 
    _exon_entry_(std::string _t_type, std::string _p_n, std::string _p_t, std::string _p_id, GenomicRegion _p_gr):_gtf_entry_(_t_type,_p_n,_p_t,_p_id,_p_gr){;}
    //_exon_entry_(std::string _t_type):_gtf_entry_(_t_type){ _coding_length = -1;}
@@ -91,7 +109,10 @@ class _other_entry_ : public _exon_entry_ {
 public:
    int64_t get_coding_length();
    int64_t get_coding_ovlp(GenomicMapRegion & _gmr_);
-   int64_t get_coding_ovlp(std::map<int64_t, bool>& _this_map_info, std::string _t_chrn);
+   //int64_t get_coding_ovlp(std::map<int64_t, bool>& _this_map_info, std::string _t_chrn);
+   //int64_t get_coding_ovlp(std::unordered_map<int64_t, bool>& _this_map_info, std::string _t_chrn);
+   //int64_t get_coding_ovlp(std::unordered_set<int64_t>& _this_map_info, std::string _t_chrn);
+   int64_t get_coding_ovlp(std::set<int64_t>& _this_map_info, std::string _t_chrn);
 
    _other_entry_(std::string _t_type, std::string _p_n, std::string _p_t, std::string _p_id, GenomicRegion _p_gr):_exon_entry_(_t_type,_p_n,_p_t,_p_id,_p_gr){;}
    //_other_entry_(std::string _t_type):_exon_entry_(_t_type){ _coding_length = -1;}
