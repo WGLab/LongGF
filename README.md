@@ -5,7 +5,7 @@ A computational algorithm and software tool for fast and accurate detection of g
 Long-read RNA-Seq techniques can generate reads that encompass a large proportion or the entire mRNA or cDNA molecules, so they are expected to address inherited limitations of short-read RNA-Seq techniques that generate only 50-150bp reads. However, there is a general lack of software tools for gene fusion detection from long-read RNA-seq data, which takes into account of the higher error rates and the possible alignment errors for long-read data. Here, we proposed a fast computational tool, LongGF, to efficiently detect candidate gene fusion from long-read RNA-seq data, including cDNA sequencing data and direct mRNA sequencing data. 
 
 ## Input
-A bam file of long-read transcriptome sequencing data sorted by name and a GTF file for the definition of genes. **Please note that if your bam is not sorted by NAME but by POSITION, you will not get correct results.**
+A bam file of long-read transcriptome sequencing data sorted by name and a GTF file for the definition of genes. **Please note that you bam must be sorted by NAME but NOT by POSITION.**
 
 ## Requirements
 You need to have C++ (GCC > 4.8.5) and HTSlib to compile and run the program. 
