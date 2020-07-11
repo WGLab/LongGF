@@ -13,10 +13,10 @@ You need to have C++ (GCC > 4.8.5) and HTSlib to compile and run the program.
 ## Installation
 There are several steps before you can run the program.
 
-### Install using Bioconda.
+### 1. Install using Bioconda.
 A single installation command of `conda install -c bioconda longgf` should work for you. If not, please post them on [GitHub](https://github.com/WGLab/LongGF/issues) and try the installation below.
 
-### Install by yourself.
+### 2. Install by yourself.
 1. `git clone https://github.com/WGLab/LongGF`
 2. `cd LongGF/bin`
 3. `g++ -g -O3 -std=c++11 -I ./include -L ./lib -Wl,--enable-new-dtags,-rpath,"\$ORIGIN"/lib -lhts -o LongGF _com_fun_.c _gtf_struct_.c get_gfFrombam.c -Wl,--no-as-needed`
