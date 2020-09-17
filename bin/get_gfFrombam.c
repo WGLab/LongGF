@@ -843,6 +843,8 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
                              GeneFusionCand _p_gfc;
                              _p_gfc.g1 = _fg_it->second.g1;
                              _p_gfc.g2 = _fg_it->second.g2;
+                             _p_gfc.bin_pos_1 = _add_i_1;
+                             _p_gfc.bin_pos_2 = _add_i_2;
                              _d_cand_pair[_pos_pair] = _p_gfc;
                          }
                          if (_d_cand_pair[_pos_pair].cand1.find(_qry_it->first) == _d_cand_pair[_pos_pair].cand1.end()){
@@ -859,38 +861,88 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
             } 
          }
       }
-      // 
-      int max_sup_1 = 0;
-      int max_sup_2 = 0;
+      //
       int64_t tot_sup_1=0, tot_sup_2=0;
-      std::map<std::string, GeneFusionCand >::iterator _d_dp_it;
       for (std::map<std::string, GeneFusionCand >::iterator _d_dp_it_go=_d_cand_pair.begin(); _d_dp_it_go!=_d_cand_pair.end(); _d_dp_it_go++){
           tot_sup_1 += _d_dp_it_go->second.cand1.size();  tot_sup_2 += _d_dp_it_go->second.cand2.size();
+      }
+
+      std::vector< std::map<std::string, GeneFusionCand >::iterator > fs_pair;
+      std::map< std::string, bool > is_in_dict;
+      while (true){ 
+      int max_sup_1 = 0;
+      int max_sup_2 = 0;
+      std::map<std::string, GeneFusionCand >::iterator _d_dp_it;
+      for (std::map<std::string, GeneFusionCand >::iterator _d_dp_it_go=_d_cand_pair.begin(); _d_dp_it_go!=_d_cand_pair.end(); _d_dp_it_go++){
+          if (is_in_dict.find( std::string(std::to_string(_d_dp_it_go->second.bin_pos_1))+"_"+std::string(std::to_string(_d_dp_it_go->second.bin_pos_2)) )!= is_in_dict.end() ){ continue; }
+          bool is_in = false;
+          for (std::vector< std::map<std::string, GeneFusionCand >::iterator >::iterator fs_it=fs_pair.begin(); fs_it!=fs_pair.end(); fs_it++){
+             if ( (*fs_it)->second.bin_pos_1 - _d_dp_it_go->second.bin_pos_1 <= 1 && (*fs_it)->second.bin_pos_1 - _d_dp_it_go->second.bin_pos_1 >=-1 && (*fs_it)->second.bin_pos_2 - _d_dp_it_go->second.bin_pos_2 <= 1 && (*fs_it)->second.bin_pos_2 - _d_dp_it_go->second.bin_pos_2 >=-1 ){
+                 is_in = true; 
+                 is_in_dict[ std::string(std::to_string(_d_dp_it_go->second.bin_pos_1))+"_"+std::string(std::to_string(_d_dp_it_go->second.bin_pos_2)) ] = true;
+                 break;
+             }
+          }
+          if (is_in){ continue; }
           if (_d_dp_it_go->second.cand1.size() > max_sup_1){ max_sup_1 = _d_dp_it_go->second.cand1.size(); _d_dp_it=_d_dp_it_go; }
           if (_d_dp_it_go->second.cand2.size() > max_sup_2){ max_sup_2 = _d_dp_it_go->second.cand2.size(); _d_dp_it=_d_dp_it_go; } 
       }
-      if (max_sup_1>_min_sup_read-1 && max_sup_2>_min_sup_read-1){
+      
+      if (!(max_sup_1>_min_sup_read-1 && max_sup_2>_min_sup_read-1)){ break; }
+      else{
+         fs_pair.push_back(_d_dp_it);
+         is_in_dict[ std::string(std::to_string(_d_dp_it->second.bin_pos_1))+"_"+std::string(std::to_string(_d_dp_it->second.bin_pos_2)) ] = true;
+
          if (_d_dp_it->second.cand1.size()>_min_sup_read-1 || _d_dp_it->second.cand2.size()>_min_sup_read-1){
+            if ((output_flag&64) && fs_pair.size()==2){
+                std::cout<<"Multiple_fusion_points: "<<_gid_to_gn[_fg_it->second.g1]<<":"<<_gid_to_gn[_fg_it->second.g2]<<std::endl;
+            }
+
             std::ostringstream oss_tostr;
             //std::cout<<"G_F-info\t"<<_gid_to_gn[_fg_it->second.g1]<<":"<<_gid_to_gn[_fg_it->second.g2]<<" "<<max_sup_1<<" "<<max_sup_2<<" supporting reads="<<_d_dp_it->second.cand1.size()<<"/"<<_d_dp_it->second.cand2.size()<<std::endl; 
             oss_tostr<<"GF\t"<<_gid_to_gn[_fg_it->second.g1]<<":"<<_gid_to_gn[_fg_it->second.g2]<<" "<<max_sup_1<<" "<<max_sup_2<<" supporting reads="<<_d_dp_it->second.cand1.size()<<"/"<<_d_dp_it->second.cand2.size(); //_com_qry_name.size(); 
             std::vector<int64_t> pos_1, pos_2;
+            std::map<int64_t, int> pos_dict_1, pos_dict_2;
+            std::map<int64_t, int>::iterator pd_it, pd_it_n;
+
             int64_t pos_1_left=0, pos_1_right=0;
             int64_t pos_2_left=0, pos_2_right=0;
             for(std::map<std::string, std::vector<GenomicMapRegion> >::iterator _i_gmr_=_d_dp_it->second.cand1.begin(); _i_gmr_!=_d_dp_it->second.cand1.end(); _i_gmr_++){
                for (std::vector<GenomicMapRegion>::iterator _i=_i_gmr_->second.begin(); _i!=_i_gmr_->second.end(); _i++){
                   pos_1.push_back(_i->other_pos);
+                  pd_it = pos_dict_1.find(_i->other_pos);
+                  if (pd_it == pos_dict_1.end()){ pos_dict_1[ _i->other_pos ] = 1; }
+                  else{ pd_it->second += 1; }
+
                   if (_i->other_pos == _i->ref_start_pos){ pos_1_left += 1; }
                   else if (_i->other_pos == _i->ref_end_pos) { pos_1_right += 1; }
                   else {std::cout<<"Error1 not start("<<_i->ref_start_pos<<") or end("<<_i->ref_end_pos<<") "<<_i->other_pos<<std::endl;}
                }
                for (std::vector<GenomicMapRegion>::iterator _i=_d_dp_it->second.cand2[_i_gmr_->first].begin(); _i!=_d_dp_it->second.cand2[_i_gmr_->first].end(); _i++){
                   pos_2.push_back(_i->other_pos);
+                  pd_it = pos_dict_2.find(_i->other_pos);
+                  if (pd_it == pos_dict_2.end()){ pos_dict_2[ _i->other_pos ] = 1; }
+                  else{ pd_it->second += 1; }
+
                   if (_i->other_pos == _i->ref_start_pos){ pos_2_left += 1; }
                   else if (_i->other_pos == _i->ref_end_pos) { pos_2_right += 1; }
                   else {std::cout<<"Error2 not start("<<_i->ref_start_pos<<") or end("<<_i->ref_end_pos<<") "<<_i->other_pos<<std::endl;}
                }
             }
+
+            oss_tostr<<" "; pd_it_n=pos_dict_1.begin(); pd_it_n++;
+            for(pd_it=pos_dict_1.begin(); pd_it!=pos_dict_1.end(); pd_it++){
+               oss_tostr << pd_it->first<<":"<<pd_it->second; 
+               if (pd_it_n == pos_dict_1.end()){;}
+               else{ oss_tostr<<";"; pd_it_n++; }
+            }
+            oss_tostr<<" "; pd_it_n=pos_dict_2.begin(); pd_it_n++;
+            for(pd_it=pos_dict_2.begin(); pd_it!=pos_dict_2.end(); pd_it++){
+               oss_tostr << pd_it->first<<":"<<pd_it->second;
+               if (pd_it_n == pos_dict_2.end()){;}
+               else{ oss_tostr<<";"; pd_it_n++; }
+            }
+
             std::map<std::string, std::vector<GenomicMapRegion> >::iterator _i_1=_d_dp_it->second.cand1.begin();
             std::map<std::string, std::vector<GenomicMapRegion> >::iterator _i_2=_d_dp_it->second.cand2.begin();
             oss_tostr<<" "<<_i_1->second[0].chrn<<":"<<int64_t(std::accumulate(std::begin(pos_1), std::end(pos_1), 0.0) / pos_1.size())<<" "<<pos_1_left<<"/"<<pos_1_right<<":"<<tot_sup_1<<":"<<_gene_in_multi_map[_fg_it->second.g1]<<" "<<_i_2->second[0].chrn<<":"<<int64_t(std::accumulate(std::begin(pos_2), std::end(pos_2), 0.0) / pos_2.size())<<" "<<pos_2_left<<"/"<<pos_2_right<<":"<<tot_sup_2<<":"<<_gene_in_multi_map[_fg_it->second.g2]<<"\n";
@@ -913,56 +965,79 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
                   }
                }
             }
-            if (_gp_pair_map.find(_fg_it->first)==_gp_pair_map.end()){
-               _gp_pair_map[_fg_it->first] = oss_tostr.str();
+            //std::string bp_str = _fg_it->first;
+            std::string bp_str = _fg_it->first+"/"+std::string(std::to_string(_d_dp_it->second.bin_pos_1))+"_"+std::string(std::to_string(_d_dp_it->second.bin_pos_2));
+            if (_gp_pair_map.find(bp_str)==_gp_pair_map.end()){
+               _gp_pair_map[ bp_str ] = oss_tostr.str();
             }else{
-               std::cout<<"Error!!! one pair occur twice: "<<_fg_it->first<<std::endl;
-               std::cout<<_gp_pair_map.find(_fg_it->first)->second;
+               std::cout<<"Error!!! one pair occur twice: "<<bp_str <<std::endl;
+               std::cout<<_gp_pair_map.find(bp_str)->second;
                std::cout<<oss_tostr.str();
             }
             NumStrPair _snp;
             _snp._num_ = _d_dp_it->second.cand1.size();
-            _snp._str_= _fg_it->first;
+            _snp._str_= bp_str; 
             //_snp._str_ = oss_tostr.str();
             _gp_rank.push_back(_snp);
  
          }
       }
+      if (!(output_flag&64) ){ break; }
+      }
    }
+   
+   std::cout<<"Potential_fusion: "<< _gp_rank.size()<<" "<< _gp_pair_map.size() <<std::endl;
+ 
+   std::map<std::string, bool> gp_oc_dict;
    std::map<std::string, std::vector<std::string> > _gf_time;
    std::map<std::string, std::vector<std::string> >::iterator _gf_t_i;
    for(std::map<std::string, std::string>::iterator _gpp_m_i=_gp_pair_map.begin(); _gpp_m_i!=_gp_pair_map.end(); _gpp_m_i++){
-      _gf_t_i = _gf_time.find(_fg_cand[_gpp_m_i->first].g1);
-      if (_gf_t_i==_gf_time.end()){
-         _gf_time[_fg_cand[_gpp_m_i->first].g1] = std::vector<std::string>();
+      //std::string gp_base_str =  _gpp_m_i->first;
+      std::string gp_base_str = _gpp_m_i->first.substr(0, _gpp_m_i->first.find_last_of("/") );
+      if (gp_oc_dict.find( gp_base_str )!=gp_oc_dict.end()){
+         continue;
       }
-      _gf_time[_fg_cand[_gpp_m_i->first].g1].push_back(_gpp_m_i->first);
-      _gf_t_i = _gf_time.find(_fg_cand[_gpp_m_i->first].g2);
+      gp_oc_dict[ gp_base_str ] = true;
+
+      _gf_t_i = _gf_time.find(_fg_cand[gp_base_str].g1);
       if (_gf_t_i==_gf_time.end()){
-         _gf_time[_fg_cand[_gpp_m_i->first].g2] = std::vector<std::string>();
+         _gf_time[_fg_cand[gp_base_str].g1] = std::vector<std::string>();
       }
-      _gf_time[_fg_cand[_gpp_m_i->first].g2].push_back(_gpp_m_i->first);
+      _gf_time[_fg_cand[gp_base_str].g1].push_back(gp_base_str);
+      _gf_t_i = _gf_time.find(_fg_cand[gp_base_str].g2);
+      if (_gf_t_i==_gf_time.end()){
+         _gf_time[_fg_cand[gp_base_str].g2] = std::vector<std::string>();
+      }
+      _gf_time[_fg_cand[gp_base_str].g2].push_back(gp_base_str);
    }
 
+   gp_oc_dict.clear();
    std::map<std::string, int> op_time_map;
    std::sort(_gp_rank.begin(), _gp_rank.end(), compare_support);
    for(std::vector<NumStrPair>::reverse_iterator _gp_it=_gp_rank.rbegin(); _gp_it!=_gp_rank.rend(); _gp_it++){
-      std::map<std::string, int>::iterator it_g2 = op_time_map.find(_fg_cand[_gp_it->_str_].g2);
-      std::map<std::string, int>::iterator it_g1 = op_time_map.find(_fg_cand[_gp_it->_str_].g1);
-      if (it_g2 == op_time_map.end()){
-         op_time_map[_fg_cand[_gp_it->_str_].g2 ] = 1;
+      //std::string gp_base_str = _gp_it->_str_;
+      std::string gp_base_str = _gp_it->_str_.substr(0, _gp_it->_str_.find_last_of("/") );
+      if (gp_oc_dict.find( gp_base_str )!=gp_oc_dict.end()){
+         ;
       }else{
-         it_g2->second +=1;
-      }
-      if (it_g1 == op_time_map.end()){
-         op_time_map[_fg_cand[_gp_it->_str_].g1 ] = 1;
-      }else{
-         it_g1->second +=1;
+         std::map<std::string, int>::iterator it_g2 = op_time_map.find(_fg_cand[gp_base_str].g2);
+         std::map<std::string, int>::iterator it_g1 = op_time_map.find(_fg_cand[gp_base_str].g1);
+         if (it_g2 == op_time_map.end()){
+            op_time_map[_fg_cand[gp_base_str].g2 ] = 1;
+         }else{
+            it_g2->second +=1;
+         }
+         if (it_g1 == op_time_map.end()){
+            op_time_map[_fg_cand[gp_base_str].g1 ] = 1;
+         }else{
+            it_g1->second +=1;
+         }
+         gp_oc_dict[ gp_base_str ] = true;
       }
 
-      if (op_time_map[_fg_cand[_gp_it->_str_].g2 ] > 2 || op_time_map[_fg_cand[_gp_it->_str_].g1 ] > 2){
-         if (_gf_time[_fg_cand[_gp_it->_str_].g2].size()>2 || _gf_time[_fg_cand[_gp_it->_str_].g1].size()>2) { continue; }
-         else if ((_gf_time[_fg_cand[_gp_it->_str_].g2].size()>1 || _gf_time[_fg_cand[_gp_it->_str_].g1].size()>1) && _gp_it->_num_<10){ continue; }
+      if (op_time_map[_fg_cand[gp_base_str].g2 ] > 2 || op_time_map[_fg_cand[gp_base_str].g1 ] > 2){
+         if (_gf_time[_fg_cand[gp_base_str].g2].size()>2 || _gf_time[_fg_cand[gp_base_str].g1].size()>2) { continue; }
+         else if ((_gf_time[_fg_cand[gp_base_str].g2].size()>1 || _gf_time[_fg_cand[gp_base_str].g1].size()>1) && _gp_it->_num_<10){ continue; }
       }
       std::cout<<_gp_pair_map[_gp_it->_str_];
    }

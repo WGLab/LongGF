@@ -34,6 +34,8 @@ typedef struct {
 typedef struct {
   std::string g1;
   std::string g2;
+  int64_t bin_pos_1;
+  int64_t bin_pos_2;
   std::map<std::string, std::vector<GenomicMapRegion> > cand1;
   std::map<std::string, std::vector<GenomicMapRegion> > cand2;
 } GeneFusionCand;
