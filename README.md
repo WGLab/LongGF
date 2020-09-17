@@ -5,13 +5,18 @@ A computational algorithm and software tool for fast and accurate detection of g
 Long-read RNA-Seq techniques can generate reads that encompass a large proportion or the entire mRNA or cDNA molecules, so they are expected to address inherited limitations of short-read RNA-Seq techniques that generate only 50-150bp reads. However, there is a general lack of software tools for gene fusion detection from long-read RNA-seq data, which takes into account of the higher error rates and the possible alignment errors for long-read data. Here, we proposed a fast computational tool, LongGF, to efficiently detect candidate gene fusion from long-read RNA-seq data, including cDNA sequencing data and direct mRNA sequencing data. 
 
 ## Input
-A bam file of long-read transcriptome sequencing data sorted by name and a GTF file for the definition of genes. **Please note that if your bam is not sorted by NAME but by POSITION, you will not get correct results.**
+A bam file of long-read transcriptome sequencing data sorted by name and a GTF file for the definition of genes. **Please note that you bam must be sorted by NAME but NOT by POSITION.**
 
 ## Requirements
 You need to have C++ (GCC > 4.8.5) and HTSlib to compile and run the program. 
 
 ## Installation
 There are several steps before you can run the program.
+
+### 1. Install using Bioconda.
+A single installation command of `conda install -c bioconda longgf` should work for you. If not, please post them on [GitHub](https://github.com/WGLab/LongGF/issues) and try the installation below.
+
+### 2. Install by yourself.
 1. `git clone https://github.com/WGLab/LongGF`
 2. `cd LongGF/bin`
 3. `g++ -g -O3 -std=c++11 -I ./include -L ./lib -Wl,--enable-new-dtags,-rpath,"\$ORIGIN"/lib -lhts -o LongGF _com_fun_.c _gtf_struct_.c get_gfFrombam.c -Wl,--no-as-needed`
@@ -34,6 +39,13 @@ where
 [Secondary_alignment:0(default)]: Optional. Default=0: not use secondary alignment.
 [min_sup_read:2(default)]: Optional. Default=2. 
 ```
+
+The default output is in the standard output, and we recommend you using ` > LongGF.run.on.XXX.date.log` after the running command so that the output will be directed to the log file. After that
+```
+grep "SumGF" LongGF.run.on.XXX.date.log
+```
+will give you a list of detected gene fusions. You can find more detail in the log file.
+
 
 ## Contact
 If you have any questions/issues/bugs, please post them on [GitHub](https://github.com/WGLab/LongGF/issues). They would also be helpful to other users.
