@@ -51,6 +51,6 @@ will give you a list of detected gene fusions. You can find more detail in the l
 If you have any questions/issues/bugs, please post them on [GitHub](https://github.com/WGLab/LongGF/issues). They would also be helpful to other users.
 
 ## Reference
-Qian Liu, Yu Hu, Andres Stucky, Li Fang, Jiang F. Zhong, Kai Wang. LongGF: computational algorithm and software tool for fast and accurate detection of gene fusion by long-read transcriptome sequencing. Submitted.
+Qian Liu, Yu Hu, Andres Stucky, Li Fang, Jiang F. Zhong, Kai Wang. LongGF: computational algorithm and software tool for fast and accurate detection of gene fusion by long-read transcriptome sequencing. BMC Genomics 21:793 (2020).
 
 
