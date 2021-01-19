@@ -280,6 +280,10 @@ std::unordered_map<std::string, std::vector<GenomicMapRegion> >  get_multiple_ma
         qry_alg_pos = 0;
         GenomicMapRegion _this_gmr;
         _this_gmr.chrn = hdr->target_name[bam_alignment_info->tid];
+        //add to tolerate chrzz and zz
+        if (_this_gmr.chrn.size()>=3 && str_tolower(_this_gmr.chrn.substr(0,3)).compare("chr")==0){
+           _this_gmr.chrn = _this_gmr.chrn.substr(3);
+        }
         _this_gmr.ref_start_pos = bam_alignment_info->pos;
         _this_gmr.qry_start_pos = 0;
         bool is_first_match = true;
@@ -472,10 +476,13 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
    if (_used_pseudogene==1){
       gt_size = gt_size1;
       gt_list = gt_list1;
-   }else{
+   }else if (_used_pseudogene==0){
       gt_size = gt_size2;
       gt_list = gt_list2;
-   }   
+   }else{// revise to consider all without filter.
+      gt_size = 0;
+      gt_list = NULL;
+   }
    int retv = read_gtf(m_gene_list, _gid_to_gn, in_gtf_file, gt_list, gt_size);
 
    std::unordered_map<std::string, std::vector<GenomicMapRegion> > multi_map_reads = get_multiple_mapped_reads(in_bam_file, _min_map_len, _used_secondary_alignment, output_flag);
@@ -530,6 +537,7 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
    fflush(stdout);
    clock_t _start_time = clock();
    int64_t _bam_i = 0;
+   bool has_chr = false;
    while (sam_ret = sam_read1(in_bam, hdr, bam_one_alignment)>=0){
          if (_bam_i%1000000==0){
             std::cout<<"Handle ="<<_bam_i<< " _fg_cand.size()=" << _fg_cand.size() <<" Time-elapsed="<<int(double(std::clock()-_start_time)*100/CLOCKS_PER_SEC)/100.00<<std::endl;
@@ -571,6 +579,11 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
         qry_alg_pos = 0;
         GenomicMapRegion _this_gmr;
         _this_gmr.chrn = hdr->target_name[bam_alignment_info->tid];
+        //add to tolerate chrzz and zz
+        if (_this_gmr.chrn.size()>=3 && str_tolower(_this_gmr.chrn.substr(0,3)).compare("chr")==0){
+           _this_gmr.chrn = _this_gmr.chrn.substr(3);
+           has_chr = true;
+        }
         _this_gmr.ref_start_pos = bam_alignment_info->pos;
         _this_gmr.qry_start_pos = 0;
         bool is_first_match = true;
@@ -738,22 +751,22 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
                       }else{
                          if (output_flag&4) {std::cout<<"Too-far "; }
                       }
-                      if ((output_flag&2) || (output_flag&4)) { std::cout<<"Read1: "<<(_q_grm_it->map_strand==0?"+":"-")<<_q_grm_it->chrn<<":"<<_q_grm_it->ref_start_pos<<"-"<<_q_grm_it->ref_end_pos<<"/"<<_q_grm_it->qry_name<<":"<<_q_grm_it->qry_start_pos<<"-"<<_q_grm_it->qry_end_pos<<" >>> "<<max_str<<" "<<min_end<<" Read2: "<<(_oq_grm_it->map_strand==0?"+":"-")<<_oq_grm_it->chrn<<":"<<_oq_grm_it->ref_start_pos<<"-"<<_oq_grm_it->ref_end_pos<<"/"<<_oq_grm_it->qry_name<<":"<<_oq_grm_it->qry_start_pos<<"-"<<_oq_grm_it->qry_end_pos<<" >>> "<<min_end-max_str<<std::endl; }
+                      if ((output_flag&2) || (output_flag&4)) { std::cout<<"Read1: "<<(_q_grm_it->map_strand==0?"+":"-")<<(has_chr?"chr":"")<<_q_grm_it->chrn<<":"<<_q_grm_it->ref_start_pos<<"-"<<_q_grm_it->ref_end_pos<<"/"<<_q_grm_it->qry_name<<":"<<_q_grm_it->qry_start_pos<<"-"<<_q_grm_it->qry_end_pos<<" >>> "<<max_str<<" "<<min_end<<" Read2: "<<(_oq_grm_it->map_strand==0?"+":"-")<<(has_chr?"chr":"")<<_oq_grm_it->chrn<<":"<<_oq_grm_it->ref_start_pos<<"-"<<_oq_grm_it->ref_end_pos<<"/"<<_oq_grm_it->qry_name<<":"<<_oq_grm_it->qry_start_pos<<"-"<<_oq_grm_it->qry_end_pos<<" >>> "<<min_end-max_str<<std::endl; }
                       continue; 
                   }
                   if ((min_end - max_str)/double(_q_grm_it->qry_end_pos - _q_grm_it->qry_start_pos)>0.4){ continue; }
                   if ((min_end - max_str)/double(_oq_grm_it->qry_end_pos - _oq_grm_it->qry_start_pos)>0.4){ continue; }
 
                   /*if (_oq_grm_it->qry_name.compare("0f1b38a9-96b2-4afc-9544-958712bebd00")==0 || _oq_grm_it->qry_name.compare("642a243d-d6ac-4db0-8a44-3aa3a01dc26c")==0 || _oq_grm_it->qry_name.compare("716353fb-78ac-4cf2-80be-5a5044869374")==0) {
-                      std::cout<<"Test.1: "<<(_q_grm_it->map_strand==0?"+":"-")<<_q_grm_it->chrn<<":"<<_q_grm_it->ref_start_pos<<"-"<<_q_grm_it->ref_end_pos<<"/"<<_q_grm_it->qry_name<<":"<<_q_grm_it->qry_start_pos<<"-"<<_q_grm_it->qry_end_pos<<" >>> "<<max_str<<" "<<min_end<<std::endl;
+                      std::cout<<"Test.1: "<<(_q_grm_it->map_strand==0?"+":"-")<<(has_chr?"chr":"")<<_q_grm_it->chrn<<":"<<_q_grm_it->ref_start_pos<<"-"<<_q_grm_it->ref_end_pos<<"/"<<_q_grm_it->qry_name<<":"<<_q_grm_it->qry_start_pos<<"-"<<_q_grm_it->qry_end_pos<<" >>> "<<max_str<<" "<<min_end<<std::endl;
                       std::cout<<"Test.2: "<<(_oq_grm_it->map_strand==0?"+":"-")<<_oq_grm_it->chrn<<":"<<_oq_grm_it->ref_start_pos<<"-"<<_oq_grm_it->ref_end_pos<<"/"<<_oq_grm_it->qry_name<<":"<<_oq_grm_it->qry_start_pos<<"-"<<_oq_grm_it->qry_end_pos<<" >>> "<<min_end-max_str<<std::endl;
                   }*/
 
                   if (_q_grm_it->qry_end_pos < _q_grm_it->qry_start_pos) {
-                      std::cout<<"Error"<<(_q_grm_it->map_strand==0?"+":"-")<<_q_grm_it->chrn<<":"<<_q_grm_it->ref_start_pos<<"-"<<_q_grm_it->ref_end_pos<<"/"<<_q_grm_it->qry_name<<":"<<_q_grm_it->qry_start_pos<<"-"<<_q_grm_it->qry_end_pos<<std::endl;
+                      std::cout<<"Error"<<(_q_grm_it->map_strand==0?"+":"-")<<(has_chr?"chr":"")<<_q_grm_it->chrn<<":"<<_q_grm_it->ref_start_pos<<"-"<<_q_grm_it->ref_end_pos<<"/"<<_q_grm_it->qry_name<<":"<<_q_grm_it->qry_start_pos<<"-"<<_q_grm_it->qry_end_pos<<std::endl;
                   }
                   if (_oq_grm_it->qry_end_pos < _oq_grm_it->qry_start_pos){
-                      std::cout<<"Error"<<(_oq_grm_it->map_strand==0?"+":"-")<<_oq_grm_it->chrn<<":"<<_oq_grm_it->ref_start_pos<<"-"<<_oq_grm_it->ref_end_pos<<"/"<<_oq_grm_it->qry_name<<":"<<_oq_grm_it->qry_start_pos<<"-"<<_oq_grm_it->qry_end_pos<<std::endl;
+                      std::cout<<"Error"<<(_oq_grm_it->map_strand==0?"+":"-")<<(has_chr?"chr":"")<<_oq_grm_it->chrn<<":"<<_oq_grm_it->ref_start_pos<<"-"<<_oq_grm_it->ref_end_pos<<"/"<<_oq_grm_it->qry_name<<":"<<_oq_grm_it->qry_start_pos<<"-"<<_oq_grm_it->qry_end_pos<<std::endl;
                   }
 
                   int64_t pos_i_1 = -1;
@@ -945,23 +958,23 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
 
             std::map<std::string, std::vector<GenomicMapRegion> >::iterator _i_1=_d_dp_it->second.cand1.begin();
             std::map<std::string, std::vector<GenomicMapRegion> >::iterator _i_2=_d_dp_it->second.cand2.begin();
-            oss_tostr<<" "<<_i_1->second[0].chrn<<":"<<int64_t(std::accumulate(std::begin(pos_1), std::end(pos_1), 0.0) / pos_1.size())<<" "<<pos_1_left<<"/"<<pos_1_right<<":"<<tot_sup_1<<":"<<_gene_in_multi_map[_fg_it->second.g1]<<" "<<_i_2->second[0].chrn<<":"<<int64_t(std::accumulate(std::begin(pos_2), std::end(pos_2), 0.0) / pos_2.size())<<" "<<pos_2_left<<"/"<<pos_2_right<<":"<<tot_sup_2<<":"<<_gene_in_multi_map[_fg_it->second.g2]<<"\n";
+            oss_tostr<<" "<<(has_chr?"chr":"")<<_i_1->second[0].chrn<<":"<<int64_t(std::accumulate(std::begin(pos_1), std::end(pos_1), 0.0) / pos_1.size())<<" "<<pos_1_left<<"/"<<pos_1_right<<":"<<tot_sup_1<<":"<<_gene_in_multi_map[_fg_it->second.g1]<<" "<<(has_chr?"chr":"")<<_i_2->second[0].chrn<<":"<<int64_t(std::accumulate(std::begin(pos_2), std::end(pos_2), 0.0) / pos_2.size())<<" "<<pos_2_left<<"/"<<pos_2_right<<":"<<tot_sup_2<<":"<<_gene_in_multi_map[_fg_it->second.g2]<<"\n";
             for(std::map<std::string, std::vector<GenomicMapRegion> >::iterator _i=_d_dp_it->second.cand1.begin(); _i!=_d_dp_it->second.cand1.end(); _i++){
-               oss_tostr<<"\t"<<_i->second[0].other_pos<<"("<<(_i->second[0].map_strand==0?"+":"-")<<_i->second[0].chrn<<":"<<_i->second[0].ref_start_pos<<"-"<<_i->second[0].ref_end_pos<<"/"<<_i->second[0].qry_name<<":"<<_i->second[0].qry_start_pos<<"-"<<_i->second[0].qry_end_pos<<")"<<_i->second.size()<<" ";
-               oss_tostr<<_d_dp_it->second.cand2[_i->first][0].other_pos<<"("<<(_d_dp_it->second.cand2[_i->first][0].map_strand==0?"+":"-")<<_d_dp_it->second.cand2[_i->first][0].chrn<<":"<<_d_dp_it->second.cand2[_i->first][0].ref_start_pos<<"-"<<_d_dp_it->second.cand2[_i->first][0].ref_end_pos<<"/"<<_d_dp_it->second.cand2[_i->first][0].qry_start_pos<<"-"<<_d_dp_it->second.cand2[_i->first][0].qry_end_pos<<")"<<_d_dp_it->second.cand2[_i->first].size();
+               oss_tostr<<"\t"<<_i->second[0].other_pos<<"("<<(_i->second[0].map_strand==0?"+":"-")<<(has_chr?"chr":"")<<_i->second[0].chrn<<":"<<_i->second[0].ref_start_pos<<"-"<<_i->second[0].ref_end_pos<<"/"<<_i->second[0].qry_name<<":"<<_i->second[0].qry_start_pos<<"-"<<_i->second[0].qry_end_pos<<")"<<_i->second.size()<<" ";
+               oss_tostr<<_d_dp_it->second.cand2[_i->first][0].other_pos<<"("<<(_d_dp_it->second.cand2[_i->first][0].map_strand==0?"+":"-")<<(has_chr?"chr":"")<<_d_dp_it->second.cand2[_i->first][0].chrn<<":"<<_d_dp_it->second.cand2[_i->first][0].ref_start_pos<<"-"<<_d_dp_it->second.cand2[_i->first][0].ref_end_pos<<"/"<<_d_dp_it->second.cand2[_i->first][0].qry_start_pos<<"-"<<_d_dp_it->second.cand2[_i->first][0].qry_end_pos<<")"<<_d_dp_it->second.cand2[_i->first].size();
                oss_tostr<<"\n";  
             }
-            oss_tostr<<"SumGF\t"<<_gid_to_gn[_fg_it->second.g1]<<":"<<_gid_to_gn[_fg_it->second.g2]<<" "<<max_sup_1<<" "<<_i_1->second[0].chrn<<":"<<int64_t(std::accumulate(std::begin(pos_1), std::end(pos_1), 0.0) / pos_1.size())<<" "<<_i_2->second[0].chrn<<":"<<int64_t(std::accumulate(std::begin(pos_2), std::end(pos_2), 0.0) / pos_2.size())<<"\n";
+            oss_tostr<<"SumGF\t"<<_gid_to_gn[_fg_it->second.g1]<<":"<<_gid_to_gn[_fg_it->second.g2]<<" "<<max_sup_1<<" "<<(has_chr?"chr":"")<<_i_1->second[0].chrn<<":"<<int64_t(std::accumulate(std::begin(pos_1), std::end(pos_1), 0.0) / pos_1.size())<<" "<<(has_chr?"chr":"")<<_i_2->second[0].chrn<<":"<<int64_t(std::accumulate(std::begin(pos_2), std::end(pos_2), 0.0) / pos_2.size())<<"\n";
            
             if (output_flag&8) {
                for(; _i_1!=_d_dp_it->second.cand1.end(); _i_1++){
                   for(std::vector<GenomicMapRegion>::iterator _i=_i_1->second.begin(); _i!=_i_1->second.end(); _i++){
-                     std::cout<<"\t 1.INFO "<<_i->other_pos<<"("<<(_i->map_strand==0?"+":"-")<<_i->chrn<<":"<<_i->ref_start_pos<<"-"<<_i->ref_end_pos<<"/"<<_i->qry_name<<":"<<_i->qry_start_pos<<"-"<<_i->qry_end_pos<<") "<<std::endl;
+                     std::cout<<"\t 1.INFO "<<_i->other_pos<<"("<<(_i->map_strand==0?"+":"-")<<(has_chr?"chr":"")<<_i->chrn<<":"<<_i->ref_start_pos<<"-"<<_i->ref_end_pos<<"/"<<_i->qry_name<<":"<<_i->qry_start_pos<<"-"<<_i->qry_end_pos<<") "<<std::endl;
                   }
                }
                for(; _i_2!=_d_dp_it->second.cand2.end(); _i_2++){
                   for(std::vector<GenomicMapRegion>::iterator _i=_i_2->second.begin(); _i!=_i_2->second.end(); _i++){
-                     std::cout<<"\t 2.INFO "<<_i->other_pos<<"("<<(_i->map_strand==0?"+":"-")<<_i->chrn<<":"<<_i->ref_start_pos<<"-"<<_i->ref_end_pos<<"/"<<_i->qry_name<<":"<<_i->qry_start_pos<<"-"<<_i->qry_end_pos<<") "<<std::endl;
+                     std::cout<<"\t 2.INFO "<<_i->other_pos<<"("<<(_i->map_strand==0?"+":"-")<<(has_chr?"chr":"")<<_i->chrn<<":"<<_i->ref_start_pos<<"-"<<_i->ref_end_pos<<"/"<<_i->qry_name<<":"<<_i->qry_start_pos<<"-"<<_i->qry_end_pos<<") "<<std::endl;
                   }
                }
             }
@@ -1052,7 +1065,7 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
 
 int usage(FILE * fp, char * argv[])
 {
-    fprintf (fp, "Usage: %s <input_bam> <input_gtf> <min-overlap-len> <bin_size> <min-map-len> [pseudogene:0(default)/1] [Secondary_alignment:0(default)] [min_sup_read:2(default)] [output_flag:0]\n", argv[0]);
+    fprintf (fp, "Usage: %s <input_bam> <input_gtf> <min-overlap-len> <bin_size> <min-map-len> [pseudogene:0(default)/1/other(no filter)] [Secondary_alignment:0(default)] [min_sup_read:2(default)] [output_flag:0]\n", argv[0]);
     return 0;
 }
 

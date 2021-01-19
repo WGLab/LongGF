@@ -5,7 +5,20 @@
 #include <fstream>
 #include <iostream>
 
+#include <algorithm>
+#include <cctype>
+
+
 char m_cigar_str[] = "MIDNSHP=XB";
+
+
+std::string str_tolower(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(),
+                   [](unsigned char c){ return std::tolower(c); } // correct
+                  );
+    return s;
+}
+
 
 bool compare_support(const NumStrPair & snp1, const NumStrPair & snp2){
    return snp1._num_<snp2._num_;

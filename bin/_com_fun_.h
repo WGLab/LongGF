@@ -11,5 +11,7 @@ std::vector<std::string> m_split_string(const std::string & m_str, char m_delimi
 
 std::map<std::string, std::map<std::string, GenomicRegion> > get_gene_from_gtf(const char* in_gtf_file, const int _used_pseudogene);
 
+std::string str_tolower(std::string s);
+
 #endif
 

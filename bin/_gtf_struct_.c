@@ -7,6 +7,7 @@
 #include <string>
 #include <iostream>
 
+
 _gtf_entry_::_gtf_entry_(std::string _t_type, std::string _p_n, std::string _p_t, std::string _p_id, GenomicRegion _p_gr){
       _this_type = _t_type;
       _coding_length = -1;
@@ -207,7 +208,11 @@ int read_gtf(std::map<std::string, std::map<std::string,  std::shared_ptr<_gtf_e
       if (line.size()>0 && line[0]!='#'){
           m_substr_list = m_split_string(line, '\t');
           if (m_substr_list.size()>0){
-             if (m_substr_list[0].size()<3 || m_substr_list[0].substr(0,3).compare("chr")!=0) {continue; }
+             //if (m_substr_list[0].size()<3 || m_substr_list[0].substr(0,3).compare("chr")!=0) {continue; }
+             // revise the line above to tolerate chrzz with zz.
+             if (m_substr_list[0].size()>=3 && str_tolower(m_substr_list[0].substr(0,3)).compare("chr")==0){
+                m_substr_list[0] = m_substr_list[0].substr(3);
+             }
              if (m_substr_list[0].find_first_of('_')!=std::string::npos){continue;}
 
              GenomicRegion cur_gr;
@@ -231,6 +236,7 @@ int read_gtf(std::map<std::string, std::map<std::string,  std::shared_ptr<_gtf_e
              std::string cur_e_name;
              cur_g_str.clear();
              while (std::getline(oss, cur_g_str, ' ')){
+                 cur_g_str = str_tolower(cur_g_str); // revise to tolerate lowcase and uppercase
                  if (cur_g_str.compare("gene_id")==0){
                      std::getline(oss, cur_g_id, ' ');
                      cur_g_id = cur_g_id.substr(1, cur_g_id.size()-3);
@@ -240,7 +246,7 @@ int read_gtf(std::map<std::string, std::map<std::string,  std::shared_ptr<_gtf_e
                  }else if (cur_g_str.compare("gene_name")==0){
                      std::getline(oss, cur_g_name, ' ');
                      cur_g_name = cur_g_name.substr(1, cur_g_name.size()-3);
-                 }else if (cur_g_str.compare("gene_type")==0){
+                 }else if (cur_g_str.compare("gene_type")==0 || cur_g_str.compare("gene_biotype")==0 ){// add gene_biotype to consider other types
                      std::getline(oss, cur_g_type, ' ');
                      cur_g_type = cur_g_type.substr(1, cur_g_type.size()-3);
                  }else if (cur_g_str.compare("transcript_name")==0){
@@ -265,11 +271,13 @@ int read_gtf(std::map<std::string, std::map<std::string,  std::shared_ptr<_gtf_e
                    break;
                 }
              }
-             if (!is_g){continue;}
+             if (gt_size>0){ 
+                if (!is_g){continue;}
+             }
 
              if (m_substr_list[2].compare("gene")==0){
                 std::shared_ptr<_gene_entry_> _c_g_ = std::make_shared<_gene_entry_>("gene", cur_g_name, cur_g_type, cur_g_id, cur_gr);
-                _gid_to_gn[cur_g_id] = cur_g_name;
+                _gid_to_gn[cur_g_id] = (cur_g_name.compare("")==0?cur_g_id:cur_g_name);
                 g_d_it = _gene_dict.find(cur_gr.chrn);
                 if (g_d_it==_gene_dict.end()){
                     _gene_dict[cur_gr.chrn] = std::map<std::string,  std::shared_ptr<_gtf_entry_> >();
