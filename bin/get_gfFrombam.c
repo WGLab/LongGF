@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdint.h>
@@ -531,7 +532,7 @@ int m_check_gene_fusion(const char* in_bam_file, const char* in_gtf_file, const 
    std::map< std::string, std::vector< std::set<int64_t> > >::iterator _this_ref_map_info_it;
 
    int64_t num_of_mult_map_qry = 0;
-   
+
    std::string m_qname;
    fprintf(stdout, "Read sam file (%s) for gene fusion detection.\n", in_bam_file);
    fflush(stdout);
@@ -1088,11 +1089,6 @@ int main (int argc, char * argv[])
    }
 
    in_bam = argv[1];
-   if (argc>7){
-      fprintf(stdout, "%s %s %s %s %s %s\n", argv[1], argv[2], argv[3], argv[4],  argv[5], argv[6]);
-   }else{
-      fprintf(stdout, "%s %s %s %s %s\n", argv[1], argv[2], argv[3], argv[4], argv[5]);
-   }
    in_gtf_file = argv[2];
    min_ovlp_len = atoi(argv[3]);
    _bin_size = atoi(argv[4]);
@@ -1111,6 +1107,16 @@ int main (int argc, char * argv[])
    }
    if (output_flag<0){
       output_flag = 0;
+   }
+   // If argc == 6, print the standard output; otherwise print the full argument set.
+   if (argc==6){
+      fprintf(stdout, "%s %s %s %s %s\n", argv[1], argv[2], argv[3], argv[4], argv[5]);
+   }else{
+      fprintf(stdout,
+         "%s %s %d %" PRId64 " %" PRId64 " %d %d %d %d\n",
+         in_bam, in_gtf_file, min_ovlp_len, _bin_size, _min_map_len,
+         _used_pseudogene, _used_secondary_alignment,
+         _min_sup_read, output_flag);
    }
 
    if (access(in_bam, F_OK)==-1){
